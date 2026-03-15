@@ -1,4 +1,4 @@
-import { listVisitors, listSessions, listPageviews, listEvents } from '../lib/db.js'
+import { listVisitors, listSessions, listPageviews, listEvents } from './lib/db.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',

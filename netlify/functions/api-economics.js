@@ -1,4 +1,4 @@
-import { upsertFunnel, listFunnels, countEvents } from '../lib/db.js'
+import { upsertFunnel, listFunnels, countEvents } from './lib/db.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
