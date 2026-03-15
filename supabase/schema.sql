@@ -8,11 +8,11 @@ create extension if not exists "uuid-ossp";
 -- VISITORS
 -- ============================================
 create table visitors (
-  id uuid primary key default uuid_generate_v4(),
-  visitor_id text unique not null,
+  id uuid default uuid_generate_v4(),
+  visitor_id text primary key,
   first_seen_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
-  device_type text, -- 'mobile' or 'desktop'
+  device_type text,
   browser text,
   os text,
   screen_resolution text,
@@ -28,16 +28,16 @@ create table visitors (
   total_sessions integer not null default 0
 );
 
-create index idx_visitors_visitor_id on visitors(visitor_id);
 create index idx_visitors_is_active on visitors(is_active) where is_active = true;
 create index idx_visitors_last_seen on visitors(last_seen_at desc);
 create index idx_visitors_first_seen on visitors(first_seen_at desc);
 
 -- ============================================
 -- SESSIONS
+-- (id is text because snippet generates string session IDs)
 -- ============================================
 create table sessions (
-  id uuid primary key default uuid_generate_v4(),
+  id text primary key,
   visitor_id text not null references visitors(visitor_id),
   started_at timestamptz not null default now(),
   ended_at timestamptz,
@@ -68,7 +68,7 @@ create index idx_sessions_active on sessions(ended_at) where ended_at is null;
 -- ============================================
 create table events (
   id uuid primary key default uuid_generate_v4(),
-  session_id uuid not null references sessions(id),
+  session_id text not null references sessions(id),
   visitor_id text not null,
   event_type text not null,
   event_data jsonb default '{}',
@@ -87,7 +87,7 @@ create index idx_events_type_timestamp on events(event_type, timestamp desc);
 -- ============================================
 create table pageviews (
   id uuid primary key default uuid_generate_v4(),
-  session_id uuid not null references sessions(id),
+  session_id text not null references sessions(id),
   visitor_id text not null,
   page_url text not null,
   page_title text,
@@ -107,7 +107,7 @@ create index idx_pageviews_entered_at on pageviews(entered_at desc);
 -- ============================================
 create table recordings (
   id uuid primary key default uuid_generate_v4(),
-  session_id uuid not null references sessions(id),
+  session_id text not null references sessions(id),
   visitor_id text not null,
   chunk_index integer not null,
   data jsonb not null,
@@ -140,9 +140,22 @@ create index idx_funnels_date on funnels(date desc);
 create index idx_funnels_platform on funnels(platform);
 
 -- ============================================
+-- RPC FUNCTIONS
+-- ============================================
+
+-- Increment visitor session count atomically
+create or replace function increment_visitor_sessions(vid text)
+returns void as $$
+begin
+  update visitors
+  set total_sessions = total_sessions + 1
+  where visitor_id = vid;
+end;
+$$ language plpgsql;
+
+-- ============================================
 -- ENABLE REALTIME
 -- ============================================
--- Enable realtime for tables that need live updates
 alter publication supabase_realtime add table visitors;
 alter publication supabase_realtime add table sessions;
 alter publication supabase_realtime add table events;
@@ -150,9 +163,6 @@ alter publication supabase_realtime add table events;
 -- ============================================
 -- ROW LEVEL SECURITY
 -- ============================================
--- For now, allow all access via service role key (used by Netlify Functions)
--- The anon key is used by the dashboard frontend (authenticated via Supabase Auth later if needed)
-
 alter table visitors enable row level security;
 alter table sessions enable row level security;
 alter table events enable row level security;
@@ -160,8 +170,7 @@ alter table pageviews enable row level security;
 alter table recordings enable row level security;
 alter table funnels enable row level security;
 
--- Policies: allow all for authenticated/service role
--- These are permissive for development; tighten for production
+-- Policies: allow all for anon (development — tighten for production)
 create policy "Allow all for anon" on visitors for all using (true) with check (true);
 create policy "Allow all for anon" on sessions for all using (true) with check (true);
 create policy "Allow all for anon" on events for all using (true) with check (true);
