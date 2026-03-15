@@ -10,22 +10,18 @@ const STEP_LABELS = {
   checkout_completed: 'Purchase',
 }
 
-const STEP_COLORS = [
-  'bg-neutral',
-  'bg-accent',
-  'bg-accent',
-  'bg-positive',
-  'bg-warning',
-  'bg-positive',
-]
+const STEP_COLORS = ['#3B82F6', '#A855F7', '#A855F7', '#22C55E', '#EAB308', '#22C55E']
 
 export default function FunnelChart({ data = [] }) {
   const navigate = useNavigate()
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-bg-secondary border border-border rounded-lg p-6 text-center text-text-secondary text-sm">
-        No funnel data available yet
+      <div className="chart-card">
+        <div className="chart-title">Conversion Funnel</div>
+        <div className="empty-state" style={{ padding: 40 }}>
+          <div className="empty-state-sub">No funnel data available yet</div>
+        </div>
       </div>
     )
   }
@@ -33,77 +29,60 @@ export default function FunnelChart({ data = [] }) {
   const maxCount = data[0]?.count || 1
 
   return (
-    <div className="bg-bg-secondary border border-border rounded-lg p-5">
-      <h3 className="text-sm font-medium text-text-primary mb-4">Conversion Funnel</h3>
+    <div className="chart-card">
+      <div className="chart-title">Conversion Funnel</div>
 
-      <div className="space-y-2">
+      <div>
         {data.map((step, i) => {
-          const widthPct = maxCount > 0 ? Math.max((step.count / maxCount) * 100, 4) : 4
+          const widthPct = maxCount > 0 ? Math.max((step.count / maxCount) * 100, 2) : 2
           const label = STEP_LABELS[step.step] || step.step
           const dropOff = step.drop_off || 0
           const convRate = step.conversion_rate || 0
 
           return (
             <div key={step.step}>
-              {/* Drop-off indicator between steps */}
               {i > 0 && dropOff > 0 && (
-                <div className="flex items-center gap-2 py-1 pl-4">
-                  <div className="w-px h-4 bg-border" />
-                  <span className="text-[10px] text-negative">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0 4px 132px' }}>
+                  <span style={{ width: 1, height: 12, background: 'var(--border)' }} />
+                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>
                     -{formatNumber(dropOff)} dropped ({formatPercent(100 - convRate)})
                   </span>
                 </div>
               )}
 
-              {/* Funnel bar */}
-              <div
-                className="group cursor-pointer"
-                onClick={() => {
-                  // Navigate to sessions filtered by this funnel step
-                  // Could filter by event type in the future
-                  navigate('/sessions')
-                }}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-text-primary">{label}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-text-primary">
-                      {formatNumber(step.count)}
-                    </span>
-                    <span className="text-xs font-mono text-text-secondary w-14 text-right">
-                      {formatPercent(step.overall_rate)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="w-full bg-bg-tertiary rounded-sm h-8 relative overflow-hidden">
-                  <div
-                    className={`h-full rounded-sm transition-all duration-500 ${STEP_COLORS[i] || 'bg-neutral'} opacity-70 group-hover:opacity-90`}
-                    style={{ width: `${widthPct}%` }}
-                  />
-                  {/* Conversion rate label inside bar */}
+              <div className="funnel-bar" style={{ cursor: 'pointer' }} onClick={() => navigate('/sessions')}>
+                <span className="funnel-label">{label}</span>
+                <div className="funnel-track" style={{ position: 'relative' }}>
+                  <div className="funnel-fill" style={{ width: `${widthPct}%`, background: STEP_COLORS[i] || '#3B82F6', opacity: 0.7 }} />
                   {i > 0 && (
-                    <div className="absolute inset-y-0 left-2 flex items-center">
-                      <span className="text-[10px] font-mono text-white/80 drop-shadow">
-                        {formatPercent(convRate)} from prev
-                      </span>
-                    </div>
+                    <span style={{
+                      position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                      fontSize: 10, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.8)',
+                    }}>
+                      {formatPercent(convRate)} from prev
+                    </span>
                   )}
                 </div>
+                <span className="funnel-value">
+                  {formatNumber(step.count)} ({formatPercent(step.overall_rate)})
+                </span>
               </div>
             </div>
           )
         })}
       </div>
 
-      {/* Summary */}
       {data.length >= 2 && (
-        <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-          <span className="text-xs text-text-secondary">Overall conversion</span>
-          <span className={`text-sm font-mono font-semibold ${
-            (data[data.length - 1]?.overall_rate || 0) >= 5 ? 'text-positive' :
-            (data[data.length - 1]?.overall_rate || 0) >= 2 ? 'text-warning' : 'text-negative'
-          }`}>
+        <div style={{
+          marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Overall conversion</span>
+          <span style={{
+            fontSize: 14, fontFamily: 'var(--font-mono)', fontWeight: 600,
+            color: (data[data.length - 1]?.overall_rate || 0) >= 5 ? 'var(--green)' :
+              (data[data.length - 1]?.overall_rate || 0) >= 2 ? 'var(--yellow)' : 'var(--red)',
+          }}>
             {formatPercent(data[data.length - 1]?.overall_rate || 0)}
           </span>
         </div>

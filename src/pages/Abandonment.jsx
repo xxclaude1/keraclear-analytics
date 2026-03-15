@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ShoppingCart, Monitor, Smartphone, PlayCircle, Filter,
-  TrendingDown, TrendingUp, ChevronLeft, ChevronRight, BarChart3,
-} from 'lucide-react'
 import TimeFilter from '../components/TimeFilter'
 import MetricCard from '../components/MetricCard'
 import useTimeFilter from '../hooks/useTimeFilter'
@@ -19,7 +15,7 @@ export default function Abandonment() {
   const [flaggedRecordings, setFlaggedRecordings] = useState([])
   const [exitPages, setExitPages] = useState([])
   const [page, setPage] = useState(1)
-  const [filters, setFilters] = useState({ type: '', device: '', source: '' })
+  const [filters, setFilters] = useState({ type: '', device: '' })
   const limit = 20
 
   useEffect(() => { fetchAll() }, [period])
@@ -30,154 +26,101 @@ export default function Abandonment() {
     try {
       const res = await fetch(`/api/analytics?section=abandonment&period=${period}`)
       const data = await res.json()
-
       setStats({
-        cartRate: data.cart_rate || 0,
-        checkoutRate: data.checkout_rate || 0,
-        cartAbandons: data.cart_abandons || 0,
-        checkoutAbandons: data.checkout_abandons || 0,
-        cartTrend: data.cart_trend || 0,
-        checkoutTrend: data.checkout_trend || 0,
-        totalATC: data.total_atc || 0,
-        totalCO: data.total_co || 0,
+        cartRate: data.cart_rate || 0, checkoutRate: data.checkout_rate || 0,
+        cartAbandons: data.cart_abandons || 0, checkoutAbandons: data.checkout_abandons || 0,
+        cartTrend: data.cart_trend || 0, checkoutTrend: data.checkout_trend || 0,
+        totalATC: data.total_atc || 0, totalCO: data.total_co || 0,
       })
-
       setFlaggedRecordings(data.flagged_recordings || [])
       setExitPages(data.exit_pages || [])
-    } catch (err) {
-      console.error('Abandonment stats error:', err)
-    }
+    } catch (err) { console.error('Abandonment stats error:', err) }
     setLoading(false)
   }
 
   async function fetchSessions() {
     try {
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        period,
-        abandonment: filters.type || 'any',
+        page: page.toString(), limit: limit.toString(), period, abandonment: filters.type || 'any',
       })
       if (filters.device) params.set('device', filters.device)
-      if (filters.source) params.set('source', filters.source)
-
       const res = await fetch(`/api/sessions?${params}`)
       const data = await res.json()
-
       setSessions(data.sessions || [])
       setTotalSessions(data.total || 0)
-    } catch (err) {
-      console.error('Abandonment sessions error:', err)
-    }
+    } catch (err) { console.error('Abandonment sessions error:', err) }
   }
 
   const totalPages = Math.ceil(totalSessions / limit)
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <ShoppingCart size={20} className="text-negative" />
-          <h2 className="text-xl font-semibold">Abandonment Analysis</h2>
+      <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h1 className="page-title">Abandonment Analysis</h1>
+          <p className="page-subtitle">Cart and checkout abandonment insights</p>
         </div>
         <TimeFilter selected={period} onChange={setPeriod} />
       </div>
 
       {loading && !stats ? (
-        <div className="text-center text-text-secondary py-12">Loading abandonment data...</div>
+        <div className="empty-state"><div className="empty-state-text">Loading abandonment data...</div></div>
       ) : (
         <>
           {/* Rate Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="bg-bg-secondary border border-border rounded-lg p-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-text-secondary uppercase tracking-wide">Cart Abandonment Rate</p>
-                <ShoppingCart size={16} className="text-negative" />
-              </div>
-              <p className="text-3xl font-bold font-mono text-negative">
-                {formatPercent(stats?.cartRate)}
-              </p>
-              <div className="flex items-center gap-1 mt-2">
-                {(stats?.cartTrend || 0) > 0 ? (
-                  <TrendingUp size={12} className="text-negative" />
-                ) : (
-                  <TrendingDown size={12} className="text-positive" />
-                )}
-                <span className={`text-xs font-mono ${(stats?.cartTrend || 0) > 0 ? 'text-negative' : 'text-positive'}`}>
-                  {(stats?.cartTrend || 0) > 0 ? '+' : ''}{formatPercent(stats?.cartTrend)} vs prev period
+          <div className="metrics-grid cols-2" style={{ marginBottom: 24 }}>
+            <div className="metric-card">
+              <div className="metric-label">Cart Abandonment Rate</div>
+              <div className="metric-value" style={{ color: 'var(--red)' }}>{formatPercent(stats?.cartRate)}</div>
+              <div className="metric-sub">
+                {(stats?.cartTrend || 0) > 0 ? '↑' : '↓'}
+                <span style={{ color: (stats?.cartTrend || 0) > 0 ? 'var(--red)' : 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                  {(stats?.cartTrend || 0) > 0 ? '+' : ''}{formatPercent(stats?.cartTrend)} vs prev
                 </span>
               </div>
-              <p className="text-xs text-text-secondary mt-1">
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                 {formatNumber(stats?.cartAbandons)} of {formatNumber(stats?.totalATC)} add-to-carts
-              </p>
+              </div>
             </div>
 
-            <div className="bg-bg-secondary border border-border rounded-lg p-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-text-secondary uppercase tracking-wide">Checkout Abandonment Rate</p>
-                <ShoppingCart size={16} className="text-warning" />
-              </div>
-              <p className="text-3xl font-bold font-mono text-warning">
-                {formatPercent(stats?.checkoutRate)}
-              </p>
-              <div className="flex items-center gap-1 mt-2">
-                {(stats?.checkoutTrend || 0) > 0 ? (
-                  <TrendingUp size={12} className="text-negative" />
-                ) : (
-                  <TrendingDown size={12} className="text-positive" />
-                )}
-                <span className={`text-xs font-mono ${(stats?.checkoutTrend || 0) > 0 ? 'text-negative' : 'text-positive'}`}>
-                  {(stats?.checkoutTrend || 0) > 0 ? '+' : ''}{formatPercent(stats?.checkoutTrend)} vs prev period
+            <div className="metric-card">
+              <div className="metric-label">Checkout Abandonment Rate</div>
+              <div className="metric-value" style={{ color: 'var(--yellow)' }}>{formatPercent(stats?.checkoutRate)}</div>
+              <div className="metric-sub">
+                {(stats?.checkoutTrend || 0) > 0 ? '↑' : '↓'}
+                <span style={{ color: (stats?.checkoutTrend || 0) > 0 ? 'var(--red)' : 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                  {(stats?.checkoutTrend || 0) > 0 ? '+' : ''}{formatPercent(stats?.checkoutTrend)} vs prev
                 </span>
               </div>
-              <p className="text-xs text-text-secondary mt-1">
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                 {formatNumber(stats?.checkoutAbandons)} of {formatNumber(stats?.totalCO)} checkouts initiated
-              </p>
+              </div>
             </div>
           </div>
 
           {/* Auto-Flagged Recordings */}
           {flaggedRecordings.length > 0 && (
-            <div className="bg-bg-secondary border border-negative/30 rounded-lg p-5 mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <PlayCircle size={16} className="text-negative" />
-                <h3 className="text-sm font-medium text-text-primary">
-                  Auto-Flagged Recordings ({flaggedRecordings.length})
-                </h3>
+            <div className="card" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', marginBottom: 16 }}>
+              <div className="card-header" style={{ color: 'var(--red)' }}>
+                Auto-Flagged Recordings
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{flaggedRecordings.length}</span>
               </div>
-              <div className="space-y-1">
+              <div className="card-body">
                 {flaggedRecordings.map((s) => (
-                  <div
-                    key={s.id}
-                    onClick={() => navigate(`/sessions/${s.id}`)}
-                    className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-bg-tertiary/50 cursor-pointer transition-colors"
-                  >
-                    {s.device_type === 'mobile' ? (
-                      <Smartphone size={14} className="text-text-secondary shrink-0" />
-                    ) : (
-                      <Monitor size={14} className="text-text-secondary shrink-0" />
-                    )}
-                    <span className="text-xs font-mono text-text-primary w-24 shrink-0">
-                      {s.visitor_id?.substring(0, 12)}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                      s.abandonment_type === 'cart'
-                        ? 'bg-negative/20 text-negative'
-                        : 'bg-warning/20 text-warning'
-                    }`}>
+                  <div key={s.id} className="session-row" onClick={() => navigate(`/sessions/${s.id}`)}>
+                    <span style={{ fontSize: 14 }}>{s.device_type === 'mobile' ? '📱' : '🖥'}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, width: 80 }}>{s.visitor_id?.substring(0, 12)}</span>
+                    <span className={`flag-badge ${s.abandonment_type === 'cart' ? 'cart' : 'checkout'}`}>
                       {s.abandonment_type === 'cart' ? 'Cart' : 'Checkout'}
                     </span>
-                    <span className="text-xs text-text-secondary truncate flex-1">
+                    <span style={{ flex: 1, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.utm_source || 'Direct'}
                     </span>
-                    <span className="text-xs font-mono text-text-secondary shrink-0">
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
                       {formatDuration(s.duration_seconds)}
                     </span>
-                    <span className="text-xs text-text-secondary shrink-0">
-                      {formatRelativeTime(s.started_at)}
-                    </span>
-                    <PlayCircle size={16} className="text-accent shrink-0" />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{formatRelativeTime(s.started_at)}</span>
+                    <span style={{ fontSize: 16 }}>▶</span>
                   </div>
                 ))}
               </div>
@@ -186,25 +129,19 @@ export default function Abandonment() {
 
           {/* Exit Heatmap */}
           {exitPages.length > 0 && (
-            <div className="bg-bg-secondary border border-border rounded-lg p-5 mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 size={16} className="text-negative" />
-                <h3 className="text-sm font-medium text-text-primary">Exit Heatmap — Where visitors abandon</h3>
-              </div>
-              <div className="space-y-2">
+            <div className="chart-card" style={{ marginBottom: 16 }}>
+              <div className="chart-title">Exit Heatmap — Where visitors abandon</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {exitPages.map((ep, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-xs text-text-secondary w-48 truncate shrink-0">{ep.page}</span>
-                    <div className="flex-1 bg-bg-tertiary rounded-sm h-6 overflow-hidden">
-                      <div
-                        className="h-full bg-negative/60 rounded-sm transition-all duration-500"
-                        style={{ width: `${Math.max(ep.pct, 3)}%` }}
-                      />
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', width: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{ep.page}</span>
+                    <div className="funnel-track" style={{ height: 22 }}>
+                      <div className="funnel-fill" style={{ width: `${Math.max(ep.pct, 3)}%`, background: 'var(--red)', opacity: 0.6 }} />
                     </div>
-                    <span className="text-xs font-mono text-text-secondary w-16 text-right shrink-0">
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)', width: 50, textAlign: 'right', flexShrink: 0 }}>
                       {formatPercent(ep.pct)}
                     </span>
-                    <span className="text-xs font-mono text-text-secondary w-10 text-right shrink-0">
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)', width: 40, textAlign: 'right', flexShrink: 0 }}>
                       {ep.count}
                     </span>
                   </div>
@@ -214,112 +151,75 @@ export default function Abandonment() {
           )}
 
           {/* Filters */}
-          <div className="flex items-center gap-3 mb-4">
-            <Filter size={14} className="text-text-secondary" />
-            <select value={filters.type}
-              onChange={e => { setFilters({ ...filters, type: e.target.value }); setPage(1) }}
-              className="bg-bg-secondary border border-border rounded-md px-3 py-1.5 text-sm text-text-primary">
+          <div className="sessions-filters">
+            <select className="filter-select" value={filters.type}
+              onChange={e => { setFilters({ ...filters, type: e.target.value }); setPage(1) }}>
               <option value="">All Abandonment</option>
               <option value="cart">Cart Only</option>
               <option value="checkout">Checkout Only</option>
             </select>
-            <select value={filters.device}
-              onChange={e => { setFilters({ ...filters, device: e.target.value }); setPage(1) }}
-              className="bg-bg-secondary border border-border rounded-md px-3 py-1.5 text-sm text-text-primary">
+            <select className="filter-select" value={filters.device}
+              onChange={e => { setFilters({ ...filters, device: e.target.value }); setPage(1) }}>
               <option value="">All Devices</option>
               <option value="mobile">Mobile</option>
               <option value="desktop">Desktop</option>
             </select>
           </div>
 
-          {/* Abandonment Sessions Table */}
-          <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">Visitor</th>
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">Device</th>
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">Type</th>
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">Source</th>
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">Exit Page</th>
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">Duration</th>
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">Pages</th>
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">When</th>
-                  <th className="px-4 py-3 text-xs font-medium text-text-secondary uppercase">Replay</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.length === 0 ? (
+          {/* Sessions Table */}
+          <div className="card">
+            <div className="card-body">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-text-secondary text-sm">
-                      {loading ? 'Loading...' : 'No abandonment sessions found for this period.'}
-                    </td>
+                    <th>Visitor</th>
+                    <th>Device</th>
+                    <th>Type</th>
+                    <th>Source</th>
+                    <th>Exit Page</th>
+                    <th className="right">Duration</th>
+                    <th className="right">Pages</th>
+                    <th>When</th>
+                    <th>Replay</th>
                   </tr>
-                ) : (
-                  sessions.map((s) => (
-                    <tr
-                      key={s.id}
-                      className="border-b border-border/30 hover:bg-bg-tertiary/30 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/sessions/${s.id}`)}
-                    >
-                      <td className="px-4 py-3 text-sm font-mono text-text-primary">
-                        {s.visitor_id?.substring(0, 12)}...
-                      </td>
-                      <td className="px-4 py-3">
-                        {s.device_type === 'mobile'
-                          ? <Smartphone size={16} className="text-text-secondary" />
-                          : <Monitor size={16} className="text-text-secondary" />}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          s.abandonment_type === 'cart'
-                            ? 'bg-negative/20 text-negative'
-                            : 'bg-warning/20 text-warning'
-                        }`}>
-                          {s.abandonment_type === 'cart' ? 'Cart' : 'Checkout'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-text-secondary">
-                        {s.utm_source || s.referrer?.substring(0, 20) || 'Direct'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-text-secondary truncate max-w-[150px]">
-                        {s.exit_page || s.landing_page || '/'}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-text-primary">
-                        {formatDuration(s.duration_seconds)}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-text-primary">
-                        {s.page_count || 0}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-text-secondary">
-                        {formatRelativeTime(s.started_at)}
-                      </td>
-                      <td className="px-4 py-3">
-                        {s.has_recording && <PlayCircle size={18} className="text-accent" />}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {sessions.length === 0 ? (
+                    <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                      {loading ? 'Loading...' : 'No abandonment sessions found'}
+                    </td></tr>
+                  ) : (
+                    sessions.map((s) => (
+                      <tr key={s.id} onClick={() => navigate(`/sessions/${s.id}`)}>
+                        <td className="mono">{s.visitor_id?.substring(0, 12)}...</td>
+                        <td>{s.device_type === 'mobile' ? '📱' : '🖥'}</td>
+                        <td>
+                          <span className={`flag-badge ${s.abandonment_type === 'cart' ? 'cart' : 'checkout'}`}>
+                            {s.abandonment_type === 'cart' ? 'Cart' : 'Checkout'}
+                          </span>
+                        </td>
+                        <td className="muted">{s.utm_source || s.referrer?.substring(0, 20) || 'Direct'}</td>
+                        <td className="muted" style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {s.exit_page || s.landing_page || '/'}
+                        </td>
+                        <td className="mono right">{formatDuration(s.duration_seconds)}</td>
+                        <td className="mono right">{s.page_count || 0}</td>
+                        <td className="muted">{formatRelativeTime(s.started_at)}</td>
+                        <td>{s.has_recording && <span style={{ fontSize: 16 }}>▶</span>}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <span className="text-sm text-text-secondary">
-                  Page {page} of {totalPages} ({totalSessions} total)
-                </span>
-                <div className="flex gap-2">
-                  <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}
-                    className="p-1.5 rounded-md bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-30">
-                    <ChevronLeft size={16} />
-                  </button>
-                  <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}
-                    className="p-1.5 rounded-md bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-30">
-                    <ChevronRight size={16} />
-                  </button>
+              {totalPages > 1 && (
+                <div className="pagination">
+                  <button className="page-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>←</button>
+                  <span className="page-info">Page {page} of {totalPages} ({totalSessions} total)</span>
+                  <button className="page-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>→</button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </>
       )}

@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  TrendingUp, DollarSign, Upload, Plus, Calculator, FileText,
-} from 'lucide-react'
-import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import TimeFilter from '../components/TimeFilter'
 import MetricCard from '../components/MetricCard'
 import useTimeFilter from '../hooks/useTimeFilter'
 import { formatCurrency, formatNumber, formatPercent } from '../utils/formatters'
+
+const TOOLTIP_STYLE = {
+  contentStyle: { background: '#222228', border: '1px solid #2A2A30', borderRadius: 8, fontSize: 12 },
+  labelStyle: { color: '#A0A0AB' },
+}
 
 export default function Funnels() {
   const { period, setPeriod } = useTimeFilter('30d')
@@ -32,25 +34,9 @@ export default function Funnels() {
       const res = await fetch(`/api/economics?period=${period}`)
       const raw = await res.json()
 
-      const totalSpend = raw.spend?.total || 0
-      const totalRevenue = raw.revenue?.total || 0
-      const aov = raw.revenue?.aov || 0
-      const rpv = raw.revenue?.rpv || 0
-      const roas = raw.spend?.roas || 0
-      const cpa = raw.spend?.cpa || 0
-      const cpm = raw.spend?.cpm || 0
-      const totalOrders = raw.orders || 0
-
-      const funnelEcon = (raw.funnel_economics || []).map((fe, i) => ({
-        step: fe.step,
-        count: fe.count,
-        cost: fe.cost_per,
-        cvr: fe.conversion_rate,
+      const funnelEcon = (raw.funnel_economics || []).map((fe) => ({
+        step: fe.step, count: fe.count, cost: fe.cost_per, cvr: fe.conversion_rate,
       }))
-
-      const contribMargin = raw.contribution?.contribution_margin || 0
-      const breakEven = raw.contribution?.break_even_cpa || 0
-      const profitPerOrder = raw.contribution?.profit_per_order || 0
 
       const latestCosts = raw.costs || {}
       setCosts({
@@ -60,44 +46,27 @@ export default function Funnels() {
         refund_rate_pct: (latestCosts.refund_rate_pct || 0).toString(),
       })
 
-      const trends = (raw.trends || []).map(r => ({
-        date: r.date,
-        spend: r.ad_spend || 0,
-        revenue: r.revenue || 0,
-      }))
-
       setData({
-        revenue: totalRevenue, aov, rpv, roas, cpa, cpm, spend: totalSpend,
-        orders: totalOrders, visitors: funnelEcon[0]?.count || 0,
-        funnelEcon, contribMargin, breakEven, profitPerOrder,
+        revenue: raw.revenue?.total || 0, aov: raw.revenue?.aov || 0, rpv: raw.revenue?.rpv || 0,
+        roas: raw.spend?.roas || 0, cpa: raw.spend?.cpa || 0, cpm: raw.spend?.cpm || 0,
+        spend: raw.spend?.total || 0, orders: raw.orders || 0,
+        funnelEcon, contribMargin: raw.contribution?.contribution_margin || 0,
+        breakEven: raw.contribution?.break_even_cpa || 0,
+        profitPerOrder: raw.contribution?.profit_per_order || 0,
         pnl: raw.pnl || {},
-        trends,
+        trends: (raw.trends || []).map(r => ({ date: r.date, spend: r.ad_spend || 0, revenue: r.revenue || 0 })),
       })
-    } catch (err) {
-      console.error('Economics fetch error:', err)
-    }
+    } catch (err) { console.error('Economics fetch error:', err) }
     setLoading(false)
   }
 
   async function submitSpend() {
     if (!spendAmount) return
-    try {
-      await fetch('/api/economics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'add_spend',
-          date: spendDate,
-          platform: spendPlatform,
-          ad_spend: parseFloat(spendAmount),
-        }),
-      })
-      setSpendAmount('')
-      setShowSpendModal(false)
-      fetchEconomics()
-    } catch (err) {
-      console.error('Failed to save spend:', err)
-    }
+    await fetch('/api/economics', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_spend', date: spendDate, platform: spendPlatform, ad_spend: parseFloat(spendAmount) }),
+    })
+    setSpendAmount(''); setShowSpendModal(false); fetchEconomics()
   }
 
   async function handleCSVUpload(e) {
@@ -108,14 +77,11 @@ export default function Funnels() {
     const rows = []
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(c => c.trim())
-      if (cols.length >= 2) {
-        rows.push({ date: cols[0], platform: cols[2] || 'all', ad_spend: parseFloat(cols[1] || 0) })
-      }
+      if (cols.length >= 2) rows.push({ date: cols[0], platform: cols[2] || 'all', ad_spend: parseFloat(cols[1] || 0) })
     }
     if (rows.length > 0) {
       await fetch('/api/economics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'bulk_spend', rows }),
       })
       fetchEconomics()
@@ -126,8 +92,7 @@ export default function Funnels() {
   async function saveCostSettings() {
     setSavingCosts(true)
     await fetch('/api/economics', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'save_costs',
         cogs_per_unit: parseFloat(costs.cogs_per_unit || 0),
@@ -136,65 +101,44 @@ export default function Funnels() {
         refund_rate_pct: parseFloat(costs.refund_rate_pct || 0),
       }),
     })
-    setSavingCosts(false)
-    fetchEconomics()
-  }
-
-  const chartTooltipStyle = {
-    contentStyle: { backgroundColor: '#161822', border: '1px solid #2a2d3e', borderRadius: 8, fontSize: 12 },
-    labelStyle: { color: '#94a3b8' },
+    setSavingCosts(false); fetchEconomics()
   }
 
   function getCostColor(cost, threshold) {
-    if (cost <= 0) return 'text-text-secondary'
-    if (cost <= threshold) return 'text-positive'
-    if (cost <= threshold * 2) return 'text-warning'
-    return 'text-negative'
+    if (cost <= 0) return 'var(--text-secondary)'
+    if (cost <= threshold) return 'var(--green)'
+    if (cost <= threshold * 2) return 'var(--yellow)'
+    return 'var(--red)'
   }
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={20} className="text-positive" />
-          <h2 className="text-xl font-semibold">Funnel Economics</h2>
+      <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h1 className="page-title">Funnel Economics</h1>
+          <p className="page-subtitle">Revenue, costs, and unit economics</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowSpendModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent/90 transition-colors"
-          >
-            <Plus size={14} />
-            Add Spend
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary border border-border text-text-secondary rounded-md text-sm hover:text-text-primary transition-colors"
-          >
-            <Upload size={14} />
-            CSV Upload
-          </button>
-          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button className="btn primary" onClick={() => setShowSpendModal(true)}>+ Add Spend</button>
+          <button className="btn" onClick={() => fileInputRef.current?.click()}>CSV Upload</button>
+          <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleCSVUpload} />
           <TimeFilter selected={period} onChange={setPeriod} />
         </div>
       </div>
 
       {/* Spend Modal */}
       {showSpendModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-bg-secondary border border-border rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold text-text-primary mb-4">Add Daily Ad Spend</h3>
-            <div className="space-y-3">
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-title">Add Daily Ad Spend</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label className="text-xs text-text-secondary block mb-1">Date</label>
-                <input type="date" value={spendDate} onChange={e => setSpendDate(e.target.value)}
-                  className="w-full bg-bg-primary border border-border rounded-md px-3 py-2 text-sm text-text-primary" />
+                <label className="form-label">Date</label>
+                <input type="date" value={spendDate} onChange={e => setSpendDate(e.target.value)} className="form-input" />
               </div>
               <div>
-                <label className="text-xs text-text-secondary block mb-1">Platform</label>
-                <select value={spendPlatform} onChange={e => setSpendPlatform(e.target.value)}
-                  className="w-full bg-bg-primary border border-border rounded-md px-3 py-2 text-sm text-text-primary">
+                <label className="form-label">Platform</label>
+                <select value={spendPlatform} onChange={e => setSpendPlatform(e.target.value)} className="filter-select" style={{ width: '100%' }}>
                   <option value="meta">Meta (Facebook/Instagram)</option>
                   <option value="google">Google Ads</option>
                   <option value="tiktok">TikTok</option>
@@ -203,86 +147,75 @@ export default function Funnels() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-text-secondary block mb-1">Amount ($)</label>
+                <label className="form-label">Amount ($)</label>
                 <input type="number" step="0.01" placeholder="0.00" value={spendAmount}
-                  onChange={e => setSpendAmount(e.target.value)}
-                  className="w-full bg-bg-primary border border-border rounded-md px-3 py-2 text-sm text-text-primary" />
+                  onChange={e => setSpendAmount(e.target.value)} className="form-input mono" />
               </div>
             </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={submitSpend}
-                className="flex-1 bg-accent text-white rounded-md py-2 text-sm hover:bg-accent/90">Save</button>
-              <button onClick={() => setShowSpendModal(false)}
-                className="flex-1 bg-bg-tertiary text-text-secondary rounded-md py-2 text-sm hover:text-text-primary">Cancel</button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button className="btn primary" style={{ flex: 1 }} onClick={submitSpend}>Save</button>
+              <button className="btn" style={{ flex: 1 }} onClick={() => setShowSpendModal(false)}>Cancel</button>
             </div>
           </div>
         </div>
       )}
 
       {loading && !data ? (
-        <div className="text-center text-text-secondary py-12">Loading economics...</div>
+        <div className="empty-state"><div className="empty-state-text">Loading economics...</div></div>
       ) : !data ? (
-        <div className="text-center text-text-secondary py-12">No data available</div>
+        <div className="empty-state"><div className="empty-state-text">No data available</div></div>
       ) : (
         <>
-          {/* Revenue + Ad Metric Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <MetricCard label="Revenue" value={formatCurrency(data.revenue)} color="text-positive" />
+          {/* Revenue Cards */}
+          <div className="metrics-grid">
+            <MetricCard label="Revenue" value={formatCurrency(data.revenue)} color="var(--green)" />
             <MetricCard label="AOV" value={formatCurrency(data.aov)} />
             <MetricCard label="RPV" value={formatCurrency(data.rpv)} />
-            <MetricCard
-              label="ROAS"
-              value={`${data.roas.toFixed(2)}x`}
-              color={data.roas >= 3 ? 'text-positive' : data.roas >= 1.5 ? 'text-warning' : 'text-negative'}
-            />
+            <MetricCard label="ROAS" value={`${data.roas.toFixed(2)}x`}
+              color={data.roas >= 3 ? 'var(--green)' : data.roas >= 1.5 ? 'var(--yellow)' : 'var(--red)'} />
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <MetricCard label="Ad Spend" value={formatCurrency(data.spend)} color="text-negative" />
-            <MetricCard
-              label="CPA"
-              value={formatCurrency(data.cpa)}
-              color={data.cpa > 0 && data.cpa <= data.breakEven ? 'text-positive' : 'text-negative'}
-            />
+          <div className="metrics-grid">
+            <MetricCard label="Ad Spend" value={formatCurrency(data.spend)} color="var(--red)" />
+            <MetricCard label="CPA" value={formatCurrency(data.cpa)}
+              color={data.cpa > 0 && data.cpa <= data.breakEven ? 'var(--green)' : 'var(--red)'} />
             <MetricCard label="CPM" value={formatCurrency(data.cpm)} />
-            <MetricCard label="Orders" value={formatNumber(data.orders)} color="text-positive" />
+            <MetricCard label="Orders" value={formatNumber(data.orders)} color="var(--green)" />
           </div>
 
           {/* Funnel Economics Table */}
-          <div className="bg-bg-secondary border border-border rounded-lg p-5 mb-6">
-            <h3 className="text-sm font-medium text-text-primary mb-4">Funnel Economics</h3>
-            <table className="w-full">
+          <div className="chart-card" style={{ marginBottom: 16 }}>
+            <div className="chart-title">Funnel Economics</div>
+            <table className="data-table">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-[10px] font-medium text-text-secondary uppercase pb-2">Step</th>
-                  <th className="text-right text-[10px] font-medium text-text-secondary uppercase pb-2">Count</th>
-                  <th className="text-right text-[10px] font-medium text-text-secondary uppercase pb-2">CVR</th>
-                  <th className="text-right text-[10px] font-medium text-text-secondary uppercase pb-2">Cost/Action</th>
-                  <th className="text-right text-[10px] font-medium text-text-secondary uppercase pb-2">Status</th>
+                <tr>
+                  <th>Step</th>
+                  <th className="right">Count</th>
+                  <th className="right">CVR</th>
+                  <th className="right">Cost/Action</th>
+                  <th className="right">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {data.funnelEcon.map((row, i) => {
                   const thresholds = [5, 25, 40, 55]
-                  const costColor = getCostColor(row.cost, thresholds[i])
                   return (
-                    <tr key={i} className="border-b border-border/30">
-                      <td className="py-2.5 text-sm text-text-primary">{row.step}</td>
-                      <td className="py-2.5 text-sm text-text-primary text-right font-mono">{formatNumber(row.count)}</td>
-                      <td className="py-2.5 text-sm text-right font-mono">
-                        <span className={row.cvr >= 10 ? 'text-positive' : row.cvr >= 5 ? 'text-warning' : 'text-negative'}>
-                          {formatPercent(row.cvr)}
-                        </span>
+                    <tr key={i} style={{ cursor: 'default' }}>
+                      <td>{row.step}</td>
+                      <td className="mono right">{formatNumber(row.count)}</td>
+                      <td className="right" style={{ fontFamily: 'var(--font-mono)', color: row.cvr >= 10 ? 'var(--green)' : row.cvr >= 5 ? 'var(--yellow)' : 'var(--red)' }}>
+                        {formatPercent(row.cvr)}
                       </td>
-                      <td className={`py-2.5 text-sm text-right font-mono ${costColor}`}>
+                      <td className="mono right" style={{ color: getCostColor(row.cost, thresholds[i]) }}>
                         {formatCurrency(row.cost)}
                       </td>
-                      <td className="py-2.5 text-right">
-                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${
-                          row.cost <= 0 ? 'bg-text-secondary/30' :
-                          row.cost <= thresholds[i] ? 'bg-positive' :
-                          row.cost <= thresholds[i] * 2 ? 'bg-warning' : 'bg-negative'
-                        }`} />
+                      <td className="right">
+                        <span style={{
+                          display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+                          background: row.cost <= 0 ? 'var(--text-muted)' :
+                            row.cost <= thresholds[i] ? 'var(--green)' :
+                            row.cost <= thresholds[i] * 2 ? 'var(--yellow)' : 'var(--red)',
+                        }} />
                       </td>
                     </tr>
                   )
@@ -291,58 +224,54 @@ export default function Funnels() {
             </table>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Contribution Margin Calculator */}
-            <div className="bg-bg-secondary border border-border rounded-lg p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Calculator size={16} className="text-accent" />
-                <h3 className="text-sm font-medium text-text-primary">Contribution Margin</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="charts-grid" style={{ marginBottom: 16 }}>
+            {/* Contribution Margin */}
+            <div className="chart-card">
+              <div className="chart-title">Contribution Margin</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
-                  <label className="text-[10px] text-text-secondary uppercase block mb-1">COGS / Unit ($)</label>
+                  <label className="form-label">COGS / Unit ($)</label>
                   <input type="number" step="0.01" value={costs.cogs_per_unit}
                     onChange={e => setCosts({ ...costs, cogs_per_unit: e.target.value })}
-                    className="w-full bg-bg-primary border border-border rounded-md px-3 py-1.5 text-sm text-text-primary font-mono" />
+                    className="form-input mono" />
                 </div>
                 <div>
-                  <label className="text-[10px] text-text-secondary uppercase block mb-1">Shipping ($)</label>
+                  <label className="form-label">Shipping ($)</label>
                   <input type="number" step="0.01" value={costs.shipping_cost}
                     onChange={e => setCosts({ ...costs, shipping_cost: e.target.value })}
-                    className="w-full bg-bg-primary border border-border rounded-md px-3 py-1.5 text-sm text-text-primary font-mono" />
+                    className="form-input mono" />
                 </div>
                 <div>
-                  <label className="text-[10px] text-text-secondary uppercase block mb-1">Processing Fee (%)</label>
+                  <label className="form-label">Processing Fee (%)</label>
                   <input type="number" step="0.1" value={costs.processing_fee_pct}
                     onChange={e => setCosts({ ...costs, processing_fee_pct: e.target.value })}
-                    className="w-full bg-bg-primary border border-border rounded-md px-3 py-1.5 text-sm text-text-primary font-mono" />
+                    className="form-input mono" />
                 </div>
                 <div>
-                  <label className="text-[10px] text-text-secondary uppercase block mb-1">Refund Rate (%)</label>
+                  <label className="form-label">Refund Rate (%)</label>
                   <input type="number" step="0.1" value={costs.refund_rate_pct}
                     onChange={e => setCosts({ ...costs, refund_rate_pct: e.target.value })}
-                    className="w-full bg-bg-primary border border-border rounded-md px-3 py-1.5 text-sm text-text-primary font-mono" />
+                    className="form-input mono" />
                 </div>
               </div>
-              <button onClick={saveCostSettings} disabled={savingCosts}
-                className="w-full bg-bg-tertiary text-text-primary rounded-md py-2 text-sm hover:bg-border transition-colors mb-4">
+              <button className="btn" style={{ width: '100%', justifyContent: 'center', marginBottom: 16 }} onClick={saveCostSettings} disabled={savingCosts}>
                 {savingCosts ? 'Saving...' : 'Save Cost Settings'}
               </button>
 
-              <div className="space-y-2 pt-3 border-t border-border">
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary">Margin / Order</span>
-                  <span className={`font-mono ${data.contribMargin >= 0 ? 'text-positive' : 'text-negative'}`}>
+              <div style={{ paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Margin / Order</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: data.contribMargin >= 0 ? 'var(--green)' : 'var(--red)' }}>
                     {formatCurrency(data.contribMargin)}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary">Break-even CPA</span>
-                  <span className="font-mono text-warning">{formatCurrency(data.breakEven)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Break-even CPA</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--yellow)' }}>{formatCurrency(data.breakEven)}</span>
                 </div>
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-text-primary">Profit / Order</span>
-                  <span className={`font-mono ${data.profitPerOrder >= 0 ? 'text-positive' : 'text-negative'}`}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600 }}>
+                  <span>Profit / Order</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: data.profitPerOrder >= 0 ? 'var(--green)' : 'var(--red)' }}>
                     {formatCurrency(data.profitPerOrder)}
                   </span>
                 </div>
@@ -350,25 +279,23 @@ export default function Funnels() {
             </div>
 
             {/* P&L Summary */}
-            <div className="bg-bg-secondary border border-border rounded-lg p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText size={16} className="text-accent" />
-                <h3 className="text-sm font-medium text-text-primary">P&L Summary</h3>
-              </div>
-              <div className="space-y-2.5">
+            <div className="chart-card">
+              <div className="chart-title">P&L Summary</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <PLRow label="Revenue" value={data.pnl.revenue || 0} positive />
                 <PLRow label="Ad Spend" value={-(data.pnl.ad_spend || 0)} />
                 <PLRow label="COGS" value={-(data.pnl.cogs || 0)} />
                 <PLRow label="Shipping" value={-(data.pnl.shipping || 0)} />
                 <PLRow label="Processing Fees" value={-(data.pnl.fees || 0)} />
                 <PLRow label="Est. Refunds" value={-(data.pnl.refunds || 0)} />
-                <div className="pt-2 mt-2 border-t-2 border-border">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-text-primary">Net Profit</span>
-                    <span className={`text-lg font-bold font-mono ${(data.pnl.net_profit || 0) >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      {formatCurrency(data.pnl.net_profit || 0)}
-                    </span>
-                  </div>
+                <div style={{ paddingTop: 10, marginTop: 6, borderTop: '2px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>Net Profit</span>
+                  <span style={{
+                    fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                    color: (data.pnl.net_profit || 0) >= 0 ? 'var(--green)' : 'var(--red)',
+                  }}>
+                    {formatCurrency(data.pnl.net_profit || 0)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -376,16 +303,16 @@ export default function Funnels() {
 
           {/* Trend Charts */}
           {data.trends.length > 1 && (
-            <div className="bg-bg-secondary border border-border rounded-lg p-5 mb-6">
-              <h3 className="text-sm font-medium text-text-primary mb-4">Spend & Revenue Over Time</h3>
-              <ResponsiveContainer width="100%" height={250}>
+            <div className="chart-card">
+              <div className="chart-title">Spend & Revenue Over Time</div>
+              <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={data.trends}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2d3e" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                  <Tooltip {...chartTooltipStyle} />
-                  <Line type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={2} dot={false} name="Revenue" />
-                  <Line type="monotone" dataKey="spend" stroke="#ef4444" strokeWidth={2} dot={false} name="Spend" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2A2A30" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#5C5C66' }} />
+                  <YAxis tick={{ fontSize: 10, fill: '#5C5C66' }} />
+                  <Tooltip {...TOOLTIP_STYLE} />
+                  <Line type="monotone" dataKey="revenue" stroke="#22C55E" strokeWidth={2} dot={false} name="Revenue" />
+                  <Line type="monotone" dataKey="spend" stroke="#EF4444" strokeWidth={2} dot={false} name="Spend" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -399,9 +326,12 @@ export default function Funnels() {
 function PLRow({ label, value, positive }) {
   const isPos = value >= 0
   return (
-    <div className="flex justify-between text-sm">
-      <span className="text-text-secondary">{label}</span>
-      <span className={`font-mono ${positive ? 'text-positive' : isPos ? 'text-text-primary' : 'text-negative'}`}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+      <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+      <span style={{
+        fontFamily: 'var(--font-mono)',
+        color: positive ? 'var(--green)' : isPos ? 'var(--text-primary)' : 'var(--red)',
+      }}>
         {value >= 0 ? formatCurrency(value) : `-${formatCurrency(Math.abs(value))}`}
       </span>
     </div>

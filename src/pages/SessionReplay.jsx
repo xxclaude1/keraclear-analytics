@@ -1,9 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import {
-  ArrowLeft, Monitor, Smartphone, Globe, Clock, Layers,
-  ExternalLink, AlertTriangle, Play, Pause,
-} from 'lucide-react'
 import { formatDuration, formatDateTime, formatRelativeTime } from '../utils/formatters'
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4]
@@ -11,7 +7,6 @@ const SPEED_OPTIONS = [0.5, 1, 2, 4]
 export default function SessionReplay() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const playerRef = useRef(null)
   const containerRef = useRef(null)
   const [session, setSession] = useState(null)
   const [visitor, setVisitor] = useState(null)
@@ -23,19 +18,13 @@ export default function SessionReplay() {
   const [speed, setSpeed] = useState(1)
   const [playerInstance, setPlayerInstance] = useState(null)
 
-  useEffect(() => {
-    fetchSession()
-  }, [id])
+  useEffect(() => { fetchSession() }, [id])
 
   useEffect(() => {
     if (recording.length > 0 && containerRef.current && !playerInstance) {
       initPlayer()
     }
-    return () => {
-      if (playerInstance) {
-        playerInstance.pause()
-      }
-    }
+    return () => { if (playerInstance) playerInstance.pause() }
   }, [recording, playerInstance])
 
   async function fetchSession() {
@@ -44,13 +33,7 @@ export default function SessionReplay() {
     try {
       const res = await fetch(`/api/sessions?id=${encodeURIComponent(id)}`)
       const data = await res.json()
-
-      if (!res.ok || data.error) {
-        setError(data.error || 'Session not found')
-        setLoading(false)
-        return
-      }
-
+      if (!res.ok || data.error) { setError(data.error || 'Session not found'); setLoading(false); return }
       setSession(data.session)
       setVisitor(data.visitor)
       setEvents(data.events || [])
@@ -67,23 +50,15 @@ export default function SessionReplay() {
     try {
       const rrwebPlayer = await import('rrweb-player')
       const RRWebPlayer = rrwebPlayer.default || rrwebPlayer
-
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ''
-      }
-
+      if (containerRef.current) containerRef.current.innerHTML = ''
       const instance = new RRWebPlayer({
         target: containerRef.current,
         props: {
-          events: recording,
-          speed,
-          showController: true,
-          autoPlay: false,
+          events: recording, speed, showController: true, autoPlay: false,
           width: containerRef.current.offsetWidth,
           height: Math.min(containerRef.current.offsetWidth * 0.625, 500),
         },
       })
-
       setPlayerInstance(instance)
     } catch (err) {
       console.error('Failed to init rrweb player:', err)
@@ -91,11 +66,7 @@ export default function SessionReplay() {
   }
 
   useEffect(() => {
-    if (playerInstance) {
-      try {
-        playerInstance.setSpeed(speed)
-      } catch (e) { /* player might not be ready */ }
-    }
+    if (playerInstance) { try { playerInstance.setSpeed(speed) } catch {} }
   }, [speed, playerInstance])
 
   function getEventIcon(type) {
@@ -124,21 +95,15 @@ export default function SessionReplay() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-text-secondary">Loading session...</div>
-      </div>
-    )
+    return <div className="empty-state"><div className="empty-state-text">Loading session...</div></div>
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <AlertTriangle size={24} className="text-negative" />
-        <p className="text-text-secondary">{error}</p>
-        <button onClick={() => navigate('/sessions')} className="text-sm text-accent hover:underline">
-          Back to Sessions
-        </button>
+      <div className="empty-state">
+        <div className="empty-state-icon">⚠️</div>
+        <div className="empty-state-text">{error}</div>
+        <button onClick={() => navigate('/sessions')} className="btn" style={{ marginTop: 12 }}>Back to Sessions</button>
       </div>
     )
   }
@@ -146,80 +111,63 @@ export default function SessionReplay() {
   const isMobile = session?.device_type === 'mobile'
 
   return (
-    <div>
+    <div style={{ maxWidth: 1200 }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => navigate('/sessions')}
-          className="p-1.5 rounded-md hover:bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <h2 className="text-xl font-semibold">Session Replay</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <span className="btn" onClick={() => navigate('/sessions')} style={{ cursor: 'pointer' }}>← Back</span>
+        <h1 className="page-title" style={{ marginBottom: 0 }}>Session Replay</h1>
         {session?.abandonment_type && (
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            session.abandonment_type === 'cart'
-              ? 'bg-negative/20 text-negative'
-              : 'bg-warning/20 text-warning'
-          }`}>
+          <span className={`flag-badge ${session.abandonment_type === 'cart' ? 'cart' : 'checkout'}`}>
             {session.abandonment_type === 'cart' ? 'Cart Abandoned' : 'Checkout Abandoned'}
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
         {/* Player Area */}
-        <div className="lg:col-span-2">
-          <div className={`bg-bg-secondary border border-border rounded-lg overflow-hidden ${
-            isMobile ? 'max-w-sm mx-auto' : ''
-          }`}>
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-bg-tertiary">
-              {isMobile ? (
-                <>
-                  <Smartphone size={14} className="text-text-secondary" />
-                  <span className="text-xs text-text-secondary">Mobile Session</span>
-                </>
-              ) : (
-                <>
-                  <div className="flex gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-negative/60" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-warning/60" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-positive/60" />
-                  </div>
-                  <div className="flex-1 mx-4">
-                    <div className="bg-bg-primary rounded-md px-3 py-1 text-xs text-text-secondary truncate">
-                      {session?.landing_page || 'mykeraclear.com'}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+        <div>
+          <div className="card" style={{ overflow: 'hidden', marginBottom: 16 }}>
+            {/* Browser chrome */}
+            {!isMobile && (
+              <div style={{
+                height: 34, background: '#2a2a32', borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6,
+              }}>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f57' }} />
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#febc2e' }} />
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#28c840' }} />
+                </div>
+                <div style={{
+                  flex: 1, background: '#1a1a20', borderRadius: 5, padding: '4px 10px',
+                  fontSize: 10, color: '#888', fontFamily: 'var(--font-mono)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 6,
+                }}>mykeraclear.com{session?.landing_page || '/'}</div>
+              </div>
+            )}
+            {isMobile && (
+              <div style={{
+                height: 28, background: '#2a2a32', borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, color: 'var(--text-muted)',
+              }}>📱 Mobile Session</div>
+            )}
 
-            <div ref={containerRef} className="w-full bg-white min-h-[300px] relative">
+            <div ref={containerRef} style={{ width: '100%', background: '#fff', minHeight: 300, position: 'relative' }}>
               {recording.length === 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-bg-primary">
-                  <Play size={48} className="text-text-secondary/30 mb-3" />
-                  <p className="text-text-secondary text-sm">No recording data available</p>
-                  <p className="text-text-secondary/60 text-xs mt-1">
-                    Recording will appear once the snippet captures session data
-                  </p>
+                <div className="empty-state" style={{ position: 'absolute', inset: 0, background: 'var(--bg-primary)' }}>
+                  <div className="empty-state-icon">🎬</div>
+                  <div className="empty-state-text">No recording available</div>
+                  <div className="empty-state-sub">Recording will appear once the snippet captures session data</div>
                 </div>
               )}
             </div>
 
             {recording.length > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border">
-                <span className="text-xs text-text-secondary mr-2">Speed:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>Speed:</span>
                 {SPEED_OPTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setSpeed(s)}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                      speed === s
-                        ? 'bg-accent text-white'
-                        : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
+                  <button key={s} onClick={() => setSpeed(s)} className={`period-btn ${speed === s ? 'active' : ''}`} style={{ padding: '4px 12px' }}>
                     {s}x
                   </button>
                 ))}
@@ -229,82 +177,80 @@ export default function SessionReplay() {
         </div>
 
         {/* Metadata Sidebar */}
-        <div className="space-y-4">
-          <div className="bg-bg-secondary border border-border rounded-lg p-4">
-            <h3 className="text-sm font-medium text-text-primary mb-3">Visitor Info</h3>
-            <div className="space-y-2.5">
-              <MetaRow
-                icon={isMobile ? <Smartphone size={14} /> : <Monitor size={14} />}
-                label="Device"
-                value={`${session?.device_type || 'Unknown'} ${visitor?.browser ? `· ${visitor.browser}` : ''}`}
-              />
-              <MetaRow
-                icon={<Globe size={14} />}
-                label="Location"
-                value={[session?.city, session?.country].filter(Boolean).join(', ') || 'Unknown'}
-              />
-              <MetaRow
-                icon={<ExternalLink size={14} />}
-                label="Source"
-                value={session?.utm_source || session?.referrer || 'Direct'}
-              />
-              {session?.utm_campaign && (
-                <MetaRow icon={<Layers size={14} />} label="Campaign" value={session.utm_campaign} />
-              )}
-              <MetaRow icon={<Clock size={14} />} label="Duration" value={formatDuration(session?.duration_seconds)} />
-              <MetaRow icon={<Layers size={14} />} label="Pages" value={`${session?.page_count || 0} pages`} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Visitor Info */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 12 }}>
+              Visitor Info
             </div>
-
-            <div className="mt-3 pt-3 border-t border-border">
-              <p className="text-xs text-text-secondary">Started: {formatDateTime(session?.started_at)}</p>
-              {session?.ended_at && (
-                <p className="text-xs text-text-secondary mt-0.5">Ended: {formatDateTime(session.ended_at)}</p>
-              )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <MetaRow label="Device" value={`${session?.device_type || 'Unknown'} ${visitor?.browser ? `· ${visitor.browser}` : ''}`} />
+              <MetaRow label="Location" value={[session?.city, session?.country].filter(Boolean).join(', ') || 'Unknown'} />
+              <MetaRow label="Source" value={session?.utm_source || session?.referrer || 'Direct'} />
+              {session?.utm_campaign && <MetaRow label="Campaign" value={session.utm_campaign} />}
+              <MetaRow label="Duration" value={formatDuration(session?.duration_seconds)} />
+              <MetaRow label="Pages" value={`${session?.page_count || 0} pages`} />
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-muted)' }}>
+              <div>Started: {formatDateTime(session?.started_at)}</div>
+              {session?.ended_at && <div style={{ marginTop: 2 }}>Ended: {formatDateTime(session.ended_at)}</div>}
             </div>
           </div>
 
-          <div className="bg-bg-secondary border border-border rounded-lg p-4">
-            <h3 className="text-sm font-medium text-text-primary mb-3">
-              Event Timeline ({events.filter(e => !['click', 'scroll_depth', 'page_exit'].includes(e.event_type)).length})
-            </h3>
-            <div className="space-y-1 max-h-[400px] overflow-y-auto">
+          {/* Event Timeline */}
+          <div className="card">
+            <div className="card-header">
+              Event Timeline
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                {events.filter(e => !['click', 'scroll_depth', 'page_exit'].includes(e.event_type)).length}
+              </span>
+            </div>
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
               {events
                 .filter(e => !['click', 'scroll_depth', 'page_exit'].includes(e.event_type))
                 .map((event, i) => (
-                <div key={event.id || i} className="flex items-start gap-2 py-1.5 text-sm">
-                  <span className="text-base leading-none mt-0.5">{getEventIcon(event.event_type)}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-text-primary text-xs truncate">{getEventLabel(event)}</p>
-                    <p className="text-text-secondary text-[10px]">{formatRelativeTime(event.timestamp)}</p>
-                  </div>
+                <div key={event.id || i} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 12,
+                }}>
+                  <span style={{ width: 20, textAlign: 'center', flexShrink: 0, fontSize: 14 }}>
+                    {getEventIcon(event.event_type)}
+                  </span>
+                  <span style={{ flex: 1, color: 'var(--text-primary)' }}>{getEventLabel(event)}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 11, flexShrink: 0 }}>
+                    {formatRelativeTime(event.timestamp)}
+                  </span>
                 </div>
               ))}
               {events.length === 0 && (
-                <p className="text-xs text-text-secondary">No events recorded yet</p>
+                <div style={{ padding: 20, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>No events recorded</div>
               )}
             </div>
           </div>
 
-          <div className="bg-bg-secondary border border-border rounded-lg p-4">
-            <h3 className="text-sm font-medium text-text-primary mb-3">
-              Pages Visited ({pageviews.length})
-            </h3>
-            <div className="space-y-1.5">
+          {/* Pages Visited */}
+          <div className="card">
+            <div className="card-header">
+              Pages Visited
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{pageviews.length}</span>
+            </div>
+            <div style={{ padding: '8px 16px' }}>
               {pageviews.map((pv, i) => (
-                <div key={pv.id || i} className="flex items-center gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${
-                    i === 0 ? 'bg-positive' : i === pageviews.length - 1 ? 'bg-negative' : 'bg-neutral'
-                  }`} />
-                  <span className="text-xs text-text-secondary truncate flex-1">{pv.page_url}</span>
-                  {pv.time_on_page_seconds && (
-                    <span className="text-[10px] text-text-secondary font-mono">
+                <div key={pv.id || i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                    background: i === 0 ? 'var(--green)' : i === pageviews.length - 1 ? 'var(--red)' : 'var(--accent)',
+                  }} />
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pv.page_url}</span>
+                  {pv.time_on_page_seconds > 0 && (
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}>
                       {formatDuration(pv.time_on_page_seconds)}
                     </span>
                   )}
                 </div>
               ))}
               {pageviews.length === 0 && (
-                <p className="text-xs text-text-secondary">No page data yet</p>
+                <div style={{ padding: 12, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>No page data yet</div>
               )}
             </div>
           </div>
@@ -314,12 +260,11 @@ export default function SessionReplay() {
   )
 }
 
-function MetaRow({ icon, label, value }) {
+function MetaRow({ label, value }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-text-secondary">{icon}</span>
-      <span className="text-xs text-text-secondary w-16">{label}</span>
-      <span className="text-xs text-text-primary truncate">{value}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 70 }}>{label}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
     </div>
   )
 }
