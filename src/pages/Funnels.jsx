@@ -9,15 +9,9 @@ import TimeFilter from '../components/TimeFilter'
 import MetricCard from '../components/MetricCard'
 import useTimeFilter from '../hooks/useTimeFilter'
 import { formatCurrency, formatNumber, formatPercent } from '../utils/formatters'
-import { supabase } from '../lib/supabase'
-
-const PERIOD_MS = {
-  '1h': 3600000, '6h': 21600000, '12h': 43200000,
-  '24h': 86400000, '7d': 604800000, '30d': 2592000000,
-}
 
 export default function Funnels() {
-  const { period, setPeriod, getQueryParams } = useTimeFilter('30d')
+  const { period, setPeriod } = useTimeFilter('30d')
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
   const [showSpendModal, setShowSpendModal] = useState(false)
@@ -35,93 +29,49 @@ export default function Funnels() {
   async function fetchEconomics() {
     setLoading(true)
     try {
-      const timeParams = getQueryParams()
-      const ms = PERIOD_MS[timeParams.period] || 2592000000
-      const since = new Date(Date.now() - ms)
-      const sinceDate = since.toISOString().split('T')[0]
-      const sinceISO = since.toISOString()
+      const res = await fetch(`/api/economics?period=${period}`)
+      const raw = await res.json()
 
-      // Fetch spend data
-      const { data: spendData } = await supabase
-        .from('funnels').select('*').gte('date', sinceDate).order('date', { ascending: true })
+      const totalSpend = raw.spend?.total || 0
+      const totalRevenue = raw.revenue?.total || 0
+      const aov = raw.revenue?.aov || 0
+      const rpv = raw.revenue?.rpv || 0
+      const roas = raw.spend?.roas || 0
+      const cpa = raw.spend?.cpa || 0
+      const cpm = raw.spend?.cpm || 0
+      const totalOrders = raw.orders || 0
 
-      // Fetch funnel counts
-      const steps = ['landing_page_view', 'add_to_cart', 'checkout_initiated', 'checkout_completed']
-      const counts = {}
-      await Promise.all(steps.map(async (step) => {
-        const { count } = await supabase.from('events')
-          .select('id', { count: 'exact', head: true })
-          .eq('event_type', step).gte('timestamp', sinceISO)
-        counts[step] = count || 0
+      const funnelEcon = (raw.funnel_economics || []).map((fe, i) => ({
+        step: fe.step,
+        count: fe.count,
+        cost: fe.cost_per,
+        cvr: fe.conversion_rate,
       }))
 
-      const rows = spendData || []
-      const totalSpend = rows.reduce((s, r) => s + parseFloat(r.ad_spend || 0), 0)
-      const totalRevenue = rows.reduce((s, r) => s + parseFloat(r.revenue || 0), 0)
-      const totalOrders = counts.checkout_completed
-      const visitors = counts.landing_page_view
+      const contribMargin = raw.contribution?.contribution_margin || 0
+      const breakEven = raw.contribution?.break_even_cpa || 0
+      const profitPerOrder = raw.contribution?.profit_per_order || 0
 
-      const latestCosts = rows.filter(r => parseFloat(r.cogs_per_unit) > 0).pop() || {
-        cogs_per_unit: 0, shipping_cost: 0, processing_fee_pct: 2.9, refund_rate_pct: 0,
-      }
-
-      const aov = totalOrders > 0 ? totalRevenue / totalOrders : 0
-      const rpv = visitors > 0 ? totalRevenue / visitors : 0
-      const roas = totalSpend > 0 ? totalRevenue / totalSpend : 0
-      const cpa = totalOrders > 0 ? totalSpend / totalOrders : 0
-      const cpm = visitors > 0 ? (totalSpend / visitors) * 1000 : 0
-      const costPerATC = counts.add_to_cart > 0 ? totalSpend / counts.add_to_cart : 0
-      const costPerCO = counts.checkout_initiated > 0 ? totalSpend / counts.checkout_initiated : 0
-
-      const funnelEcon = [
-        { step: 'Landing Page', count: counts.landing_page_view, cost: visitors > 0 ? totalSpend / visitors : 0 },
-        { step: 'Add to Cart', count: counts.add_to_cart, cost: costPerATC },
-        { step: 'Checkout', count: counts.checkout_initiated, cost: costPerCO },
-        { step: 'Purchase', count: counts.checkout_completed, cost: cpa },
-      ]
-      for (let i = 0; i < funnelEcon.length; i++) {
-        const prev = i === 0 ? funnelEcon[0].count : funnelEcon[i - 1].count
-        funnelEcon[i].cvr = prev > 0 ? (funnelEcon[i].count / prev) * 100 : 0
-      }
-
-      // Contribution margin
-      const cogs = parseFloat(latestCosts.cogs_per_unit || 0)
-      const ship = parseFloat(latestCosts.shipping_cost || 0)
-      const procPct = parseFloat(latestCosts.processing_fee_pct || 2.9)
-      const refPct = parseFloat(latestCosts.refund_rate_pct || 0)
-      const procFee = aov * (procPct / 100)
-      const refCost = aov * (refPct / 100)
-      const contribMargin = aov - cogs - ship - procFee - refCost
-      const breakEven = contribMargin
-      const profitPerOrder = contribMargin - cpa
-
-      // P&L
-      const totalCOGS = cogs * totalOrders
-      const totalShip = ship * totalOrders
-      const totalFees = procFee * totalOrders
-      const totalRef = refCost * totalOrders
-      const netProfit = totalRevenue - totalSpend - totalCOGS - totalShip - totalFees - totalRef
-
-      // Trends
-      const trends = rows.map(r => ({
-        date: r.date,
-        spend: parseFloat(r.ad_spend || 0),
-        revenue: parseFloat(r.revenue || 0),
-      }))
-
+      const latestCosts = raw.costs || {}
       setCosts({
-        cogs_per_unit: cogs.toString(),
-        shipping_cost: ship.toString(),
-        processing_fee_pct: procPct.toString(),
-        refund_rate_pct: refPct.toString(),
+        cogs_per_unit: (latestCosts.cogs_per_unit || 0).toString(),
+        shipping_cost: (latestCosts.shipping_cost || 0).toString(),
+        processing_fee_pct: (latestCosts.processing_fee_pct || 2.9).toString(),
+        refund_rate_pct: (latestCosts.refund_rate_pct || 0).toString(),
       })
+
+      const trends = (raw.trends || []).map(r => ({
+        date: r.date,
+        spend: r.ad_spend || 0,
+        revenue: r.revenue || 0,
+      }))
 
       setData({
         revenue: totalRevenue, aov, rpv, roas, cpa, cpm, spend: totalSpend,
-        orders: totalOrders, visitors,
+        orders: totalOrders, visitors: funnelEcon[0]?.count || 0,
         funnelEcon, contribMargin, breakEven, profitPerOrder,
-        pnl: { revenue: totalRevenue, spend: totalSpend, cogs: totalCOGS, shipping: totalShip, fees: totalFees, refunds: totalRef, net: netProfit },
-        costs: { cogs, ship, procPct, refPct }, trends,
+        pnl: raw.pnl || {},
+        trends,
       })
     } catch (err) {
       console.error('Economics fetch error:', err)
@@ -131,14 +81,22 @@ export default function Funnels() {
 
   async function submitSpend() {
     if (!spendAmount) return
-    const { error } = await supabase.from('funnels').upsert({
-      date: spendDate, platform: spendPlatform,
-      ad_spend: parseFloat(spendAmount),
-    }, { onConflict: 'date,platform' })
-    if (!error) {
+    try {
+      await fetch('/api/economics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_spend',
+          date: spendDate,
+          platform: spendPlatform,
+          ad_spend: parseFloat(spendAmount),
+        }),
+      })
       setSpendAmount('')
       setShowSpendModal(false)
       fetchEconomics()
+    } catch (err) {
+      console.error('Failed to save spend:', err)
     }
   }
 
@@ -155,7 +113,11 @@ export default function Funnels() {
       }
     }
     if (rows.length > 0) {
-      await supabase.from('funnels').upsert(rows, { onConflict: 'date,platform' })
+      await fetch('/api/economics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'bulk_spend', rows }),
+      })
       fetchEconomics()
     }
     e.target.value = ''
@@ -163,14 +125,17 @@ export default function Funnels() {
 
   async function saveCostSettings() {
     setSavingCosts(true)
-    const today = new Date().toISOString().split('T')[0]
-    await supabase.from('funnels').upsert({
-      date: today, platform: 'all',
-      cogs_per_unit: parseFloat(costs.cogs_per_unit || 0),
-      shipping_cost: parseFloat(costs.shipping_cost || 0),
-      processing_fee_pct: parseFloat(costs.processing_fee_pct || 2.9),
-      refund_rate_pct: parseFloat(costs.refund_rate_pct || 0),
-    }, { onConflict: 'date,platform' })
+    await fetch('/api/economics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_costs',
+        cogs_per_unit: parseFloat(costs.cogs_per_unit || 0),
+        shipping_cost: parseFloat(costs.shipping_cost || 0),
+        processing_fee_pct: parseFloat(costs.processing_fee_pct || 2.9),
+        refund_rate_pct: parseFloat(costs.refund_rate_pct || 0),
+      }),
+    })
     setSavingCosts(false)
     fetchEconomics()
   }
@@ -298,7 +263,7 @@ export default function Funnels() {
               </thead>
               <tbody>
                 {data.funnelEcon.map((row, i) => {
-                  const thresholds = [5, 25, 40, 55] // rough cost thresholds per step
+                  const thresholds = [5, 25, 40, 55]
                   const costColor = getCostColor(row.cost, thresholds[i])
                   return (
                     <tr key={i} className="border-b border-border/30">
@@ -391,17 +356,17 @@ export default function Funnels() {
                 <h3 className="text-sm font-medium text-text-primary">P&L Summary</h3>
               </div>
               <div className="space-y-2.5">
-                <PLRow label="Revenue" value={data.pnl.revenue} positive />
-                <PLRow label="Ad Spend" value={-data.pnl.spend} />
-                <PLRow label="COGS" value={-data.pnl.cogs} />
-                <PLRow label="Shipping" value={-data.pnl.shipping} />
-                <PLRow label="Processing Fees" value={-data.pnl.fees} />
-                <PLRow label="Est. Refunds" value={-data.pnl.refunds} />
+                <PLRow label="Revenue" value={data.pnl.revenue || 0} positive />
+                <PLRow label="Ad Spend" value={-(data.pnl.ad_spend || 0)} />
+                <PLRow label="COGS" value={-(data.pnl.cogs || 0)} />
+                <PLRow label="Shipping" value={-(data.pnl.shipping || 0)} />
+                <PLRow label="Processing Fees" value={-(data.pnl.fees || 0)} />
+                <PLRow label="Est. Refunds" value={-(data.pnl.refunds || 0)} />
                 <div className="pt-2 mt-2 border-t-2 border-border">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-semibold text-text-primary">Net Profit</span>
-                    <span className={`text-lg font-bold font-mono ${data.pnl.net >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      {formatCurrency(data.pnl.net)}
+                    <span className={`text-lg font-bold font-mono ${(data.pnl.net_profit || 0) >= 0 ? 'text-positive' : 'text-negative'}`}>
+                      {formatCurrency(data.pnl.net_profit || 0)}
                     </span>
                   </div>
                 </div>
@@ -441,8 +406,4 @@ function PLRow({ label, value, positive }) {
       </span>
     </div>
   )
-}
-
-function formatCurrencyLocal(val) {
-  return `$${Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }

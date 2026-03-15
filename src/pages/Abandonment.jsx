@@ -8,16 +8,10 @@ import TimeFilter from '../components/TimeFilter'
 import MetricCard from '../components/MetricCard'
 import useTimeFilter from '../hooks/useTimeFilter'
 import { formatNumber, formatPercent, formatDuration, formatRelativeTime } from '../utils/formatters'
-import { supabase } from '../lib/supabase'
-
-const PERIOD_MS = {
-  '1h': 3600000, '6h': 21600000, '12h': 43200000,
-  '24h': 86400000, '7d': 604800000, '30d': 2592000000,
-}
 
 export default function Abandonment() {
   const navigate = useNavigate()
-  const { period, setPeriod, getQueryParams } = useTimeFilter('7d')
+  const { period, setPeriod } = useTimeFilter('7d')
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState(null)
   const [sessions, setSessions] = useState([])
@@ -31,90 +25,25 @@ export default function Abandonment() {
   useEffect(() => { fetchAll() }, [period])
   useEffect(() => { fetchSessions() }, [page, filters, period])
 
-  function getSinceISO() {
-    const tp = getQueryParams()
-    const ms = PERIOD_MS[tp.period] || 604800000
-    return new Date(Date.now() - ms).toISOString()
-  }
-
   async function fetchAll() {
     setLoading(true)
-    const sinceISO = getSinceISO()
-
     try {
-      // Fetch abandonment stats
-      const [cartAbandonRes, checkoutAbandonRes, totalATCRes, totalCORes, prevCartRes, prevCORes] = await Promise.all([
-        supabase.from('sessions').select('id', { count: 'exact', head: true })
-          .eq('abandonment_type', 'cart').gte('started_at', sinceISO),
-        supabase.from('sessions').select('id', { count: 'exact', head: true })
-          .eq('abandonment_type', 'checkout').gte('started_at', sinceISO),
-        supabase.from('events').select('id', { count: 'exact', head: true })
-          .eq('event_type', 'add_to_cart').gte('timestamp', sinceISO),
-        supabase.from('events').select('id', { count: 'exact', head: true })
-          .eq('event_type', 'checkout_initiated').gte('timestamp', sinceISO),
-        // Previous period for trend comparison
-        supabase.from('sessions').select('id', { count: 'exact', head: true })
-          .eq('abandonment_type', 'cart')
-          .gte('started_at', new Date(new Date(sinceISO).getTime() - (Date.now() - new Date(sinceISO).getTime())).toISOString())
-          .lt('started_at', sinceISO),
-        supabase.from('sessions').select('id', { count: 'exact', head: true })
-          .eq('abandonment_type', 'checkout')
-          .gte('started_at', new Date(new Date(sinceISO).getTime() - (Date.now() - new Date(sinceISO).getTime())).toISOString())
-          .lt('started_at', sinceISO),
-      ])
-
-      const cartAbandons = cartAbandonRes.count || 0
-      const checkoutAbandons = checkoutAbandonRes.count || 0
-      const totalATC = totalATCRes.count || 0
-      const totalCO = totalCORes.count || 0
-      const prevCartAbandons = prevCartRes.count || 0
-      const prevCheckoutAbandons = prevCORes.count || 0
-
-      const cartRate = totalATC > 0 ? (cartAbandons / totalATC) * 100 : 0
-      const checkoutRate = totalCO > 0 ? (checkoutAbandons / totalCO) * 100 : 0
-
-      // Trend: compare with previous equal-length period
-      const prevCartRate = totalATC > 0 ? (prevCartAbandons / Math.max(totalATC, 1)) * 100 : 0
-      const prevCheckoutRate = totalCO > 0 ? (prevCheckoutAbandons / Math.max(totalCO, 1)) * 100 : 0
-      const cartTrend = cartRate - prevCartRate
-      const checkoutTrend = checkoutRate - prevCheckoutRate
+      const res = await fetch(`/api/analytics?section=abandonment&period=${period}`)
+      const data = await res.json()
 
       setStats({
-        cartRate, checkoutRate, cartAbandons, checkoutAbandons,
-        cartTrend, checkoutTrend, totalATC, totalCO,
+        cartRate: data.cart_rate || 0,
+        checkoutRate: data.checkout_rate || 0,
+        cartAbandons: data.cart_abandons || 0,
+        checkoutAbandons: data.checkout_abandons || 0,
+        cartTrend: data.cart_trend || 0,
+        checkoutTrend: data.checkout_trend || 0,
+        totalATC: data.total_atc || 0,
+        totalCO: data.total_co || 0,
       })
 
-      // Fetch auto-flagged recordings (abandonment + has_recording, most recent 10)
-      const { data: flagged } = await supabase
-        .from('sessions')
-        .select('*')
-        .not('abandonment_type', 'is', null)
-        .eq('has_recording', true)
-        .gte('started_at', sinceISO)
-        .order('started_at', { ascending: false })
-        .limit(10)
-
-      setFlaggedRecordings(flagged || [])
-
-      // Fetch exit page heatmap data
-      const { data: abandonSessions } = await supabase
-        .from('sessions')
-        .select('exit_page, abandonment_type')
-        .not('abandonment_type', 'is', null)
-        .gte('started_at', sinceISO)
-
-      const exitMap = {}
-      for (const s of (abandonSessions || [])) {
-        const page = s.exit_page || 'Unknown'
-        exitMap[page] = (exitMap[page] || 0) + 1
-      }
-      const totalExits = Object.values(exitMap).reduce((s, v) => s + v, 0) || 1
-      const exitList = Object.entries(exitMap)
-        .map(([page, count]) => ({ page, count, pct: (count / totalExits) * 100 }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10)
-
-      setExitPages(exitList)
+      setFlaggedRecordings(data.flagged_recordings || [])
+      setExitPages(data.exit_pages || [])
     } catch (err) {
       console.error('Abandonment stats error:', err)
     }
@@ -122,25 +51,21 @@ export default function Abandonment() {
   }
 
   async function fetchSessions() {
-    const sinceISO = getSinceISO()
     try {
-      let query = supabase
-        .from('sessions')
-        .select('*', { count: 'exact' })
-        .not('abandonment_type', 'is', null)
-        .gte('started_at', sinceISO)
-        .order('started_at', { ascending: false })
-        .range((page - 1) * limit, page * limit - 1)
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        period,
+        abandonment: filters.type || 'any',
+      })
+      if (filters.device) params.set('device', filters.device)
+      if (filters.source) params.set('source', filters.source)
 
-      if (filters.type === 'cart') query = query.eq('abandonment_type', 'cart')
-      else if (filters.type === 'checkout') query = query.eq('abandonment_type', 'checkout')
+      const res = await fetch(`/api/sessions?${params}`)
+      const data = await res.json()
 
-      if (filters.device) query = query.eq('device_type', filters.device)
-      if (filters.source) query = query.eq('utm_source', filters.source)
-
-      const { data, count } = await query
-      setSessions(data || [])
-      setTotalSessions(count || 0)
+      setSessions(data.sessions || [])
+      setTotalSessions(data.total || 0)
     } catch (err) {
       console.error('Abandonment sessions error:', err)
     }

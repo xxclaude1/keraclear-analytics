@@ -5,19 +5,13 @@ import {
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, BarChart, Bar,
+  PieChart, Pie, Cell,
 } from 'recharts'
 import TimeFilter from '../components/TimeFilter'
 import MetricCard from '../components/MetricCard'
 import FunnelChart from '../components/FunnelChart'
 import useTimeFilter from '../hooks/useTimeFilter'
 import { formatNumber, formatDuration, formatPercent } from '../utils/formatters'
-import { supabase } from '../lib/supabase'
-
-const PERIOD_MS = {
-  '1h': 3600000, '6h': 21600000, '12h': 43200000,
-  '24h': 86400000, '7d': 604800000, '30d': 2592000000,
-}
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6']
 
@@ -38,196 +32,21 @@ export default function Dashboard() {
 
   async function fetchAll() {
     setLoading(true)
-    const timeParams = getQueryParams()
-    const sinceISO = getSinceISO(timeParams)
-
     try {
-      const [overviewData, trafficData, sourcesData, devicesData, pagesData, geoData, funnelData] = await Promise.all([
-        fetchOverview(sinceISO),
-        fetchTrafficOverTime(sinceISO, period),
-        fetchSources(sinceISO),
-        fetchDevices(sinceISO),
-        fetchTopPages(sinceISO),
-        fetchGeo(sinceISO),
-        fetchFunnel(sinceISO),
-      ])
+      const res = await fetch(`/api/analytics?section=all&period=${period}`)
+      const data = await res.json()
 
-      setOverview(overviewData)
-      setTrafficOverTime(trafficData)
-      setSources(sourcesData)
-      setDevices(devicesData)
-      setTopPages(pagesData)
-      setGeo(geoData)
-      setFunnel(funnelData)
+      setOverview(data.overview)
+      setTrafficOverTime(data.traffic_over_time || [])
+      setSources(data.sources || [])
+      setDevices(data.devices)
+      setTopPages(data.top_pages || [])
+      setGeo(data.geo || { countries: [], cities: [] })
+      setFunnel(data.funnel || [])
     } catch (err) {
       console.error('Dashboard fetch error:', err)
     }
     setLoading(false)
-  }
-
-  function getSinceISO(timeParams) {
-    if (timeParams.start) return new Date(timeParams.start).toISOString()
-    const ms = PERIOD_MS[timeParams.period] || 86400000
-    return new Date(Date.now() - ms).toISOString()
-  }
-
-  // ---- Data fetchers (direct Supabase queries) ----
-
-  async function fetchOverview(sinceISO) {
-    const [sessionsRes, visitorsRes, pageviewsRes] = await Promise.all([
-      supabase.from('sessions').select('id, visitor_id, duration_seconds, page_count', { count: 'exact' }).gte('started_at', sinceISO),
-      supabase.from('visitors').select('visitor_id, first_seen_at', { count: 'exact' }).gte('last_seen_at', sinceISO),
-      supabase.from('pageviews').select('id', { count: 'exact', head: true }).gte('entered_at', sinceISO),
-    ])
-
-    const sessions = sessionsRes.data || []
-    const visitors = visitorsRes.data || []
-    const totalSessions = sessionsRes.count || 0
-    const totalVisitors = visitorsRes.count || 0
-    const totalPageviews = pageviewsRes.count || 0
-
-    const durWithValues = sessions.filter(s => s.duration_seconds > 0)
-    const avgDuration = durWithValues.length > 0
-      ? Math.round(durWithValues.reduce((sum, s) => sum + s.duration_seconds, 0) / durWithValues.length) : 0
-
-    const bounces = sessions.filter(s => (s.page_count || 0) <= 1).length
-    const bounceRate = totalSessions > 0 ? (bounces / totalSessions) * 100 : 0
-
-    const newVisitors = visitors.filter(v => new Date(v.first_seen_at) >= new Date(sinceISO)).length
-    const newPct = totalVisitors > 0 ? (newVisitors / totalVisitors) * 100 : 0
-
-    return {
-      total_visitors: totalVisitors,
-      total_sessions: totalSessions,
-      total_pageviews: totalPageviews,
-      avg_duration: avgDuration,
-      bounce_rate: bounceRate,
-      new_visitors: newVisitors,
-      returning_visitors: totalVisitors - newVisitors,
-      new_pct: newPct,
-    }
-  }
-
-  async function fetchTrafficOverTime(sinceISO, period) {
-    let granularity = 'hour'
-    if (period === '1h') granularity = 'minute'
-    else if (['6h', '12h', '24h'].includes(period)) granularity = 'hour'
-    else granularity = 'day'
-
-    const { data: sessions } = await supabase
-      .from('sessions').select('started_at, visitor_id')
-      .gte('started_at', sinceISO).order('started_at', { ascending: true })
-
-    const buckets = {}
-    for (const s of (sessions || [])) {
-      const d = new Date(s.started_at)
-      let key
-      if (granularity === 'minute') key = `${pad(d.getHours())}:${pad(d.getMinutes())}`
-      else if (granularity === 'hour') key = `${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:00`
-      else key = `${pad(d.getMonth()+1)}/${pad(d.getDate())}`
-
-      if (!buckets[key]) buckets[key] = { time: key, sessions: 0, visitors: new Set() }
-      buckets[key].sessions++
-      buckets[key].visitors.add(s.visitor_id)
-    }
-
-    return Object.values(buckets).map(b => ({
-      time: b.time, sessions: b.sessions, visitors: b.visitors.size,
-    }))
-  }
-
-  async function fetchSources(sinceISO) {
-    const { data: sessions } = await supabase
-      .from('sessions').select('utm_source, utm_medium, utm_campaign, referrer, visitor_id')
-      .gte('started_at', sinceISO)
-
-    const map = {}
-    for (const s of (sessions || [])) {
-      const source = s.utm_source || extractDomain(s.referrer) || 'Direct'
-      const medium = s.utm_medium || (s.referrer ? 'referral' : 'none')
-      const key = `${source}|${medium}`
-      if (!map[key]) map[key] = { source, medium, sessions: 0, visitors: new Set() }
-      map[key].sessions++
-      map[key].visitors.add(s.visitor_id)
-    }
-
-    return Object.values(map)
-      .map(s => ({ ...s, visitors: s.visitors.size }))
-      .sort((a, b) => b.sessions - a.sessions).slice(0, 15)
-  }
-
-  async function fetchDevices(sinceISO) {
-    const { data: sessions } = await supabase
-      .from('sessions').select('device_type').gte('started_at', sinceISO)
-
-    const counts = { mobile: 0, desktop: 0 }
-    for (const s of (sessions || [])) {
-      if (s.device_type === 'mobile') counts.mobile++; else counts.desktop++
-    }
-    const total = counts.mobile + counts.desktop
-    return {
-      mobile: counts.mobile, desktop: counts.desktop,
-      mobile_pct: total > 0 ? (counts.mobile / total) * 100 : 0,
-      desktop_pct: total > 0 ? (counts.desktop / total) * 100 : 0,
-    }
-  }
-
-  async function fetchTopPages(sinceISO) {
-    const { data } = await supabase
-      .from('pageviews').select('page_url, time_on_page_seconds')
-      .gte('entered_at', sinceISO)
-
-    const map = {}
-    for (const p of (data || [])) {
-      const url = p.page_url || '/'
-      if (!map[url]) map[url] = { page_url: url, views: 0, totalTime: 0, timeCount: 0 }
-      map[url].views++
-      if (p.time_on_page_seconds) { map[url].totalTime += p.time_on_page_seconds; map[url].timeCount++ }
-    }
-
-    return Object.values(map)
-      .map(p => ({ ...p, avg_time: p.timeCount > 0 ? Math.round(p.totalTime / p.timeCount) : 0 }))
-      .sort((a, b) => b.views - a.views).slice(0, 15)
-  }
-
-  async function fetchGeo(sinceISO) {
-    const { data } = await supabase
-      .from('sessions').select('country, city').gte('started_at', sinceISO)
-
-    const countryMap = {}, cityMap = {}
-    for (const s of (data || [])) {
-      const country = s.country || 'Unknown'
-      countryMap[country] = (countryMap[country] || 0) + 1
-      if (s.city) {
-        const key = `${s.city}, ${country}`
-        cityMap[key] = (cityMap[key] || 0) + 1
-      }
-    }
-
-    return {
-      countries: Object.entries(countryMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
-      cities: Object.entries(cityMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
-    }
-  }
-
-  async function fetchFunnel(sinceISO) {
-    const steps = ['landing_page_view', 'vsl_page_view', 'sales_page_view', 'add_to_cart', 'checkout_initiated', 'checkout_completed']
-    const counts = {}
-    await Promise.all(steps.map(async (step) => {
-      const { count } = await supabase.from('events').select('id', { count: 'exact', head: true }).eq('event_type', step).gte('timestamp', sinceISO)
-      counts[step] = count || 0
-    }))
-
-    return steps.map((step, i) => {
-      const count = counts[step]
-      const prev = i === 0 ? count : counts[steps[i - 1]]
-      return {
-        step, count,
-        conversion_rate: prev > 0 ? parseFloat(((count / prev) * 100).toFixed(1)) : 0,
-        overall_rate: counts[steps[0]] > 0 ? parseFloat(((count / counts[steps[0]]) * 100).toFixed(1)) : 0,
-        drop_off: i === 0 ? 0 : prev - count,
-      }
-    })
   }
 
   const chartTooltipStyle = {
@@ -432,11 +251,4 @@ export default function Dashboard() {
       )}
     </div>
   )
-}
-
-function pad(n) { return n.toString().padStart(2, '0') }
-
-function extractDomain(url) {
-  if (!url) return null
-  try { return new URL(url).hostname.replace('www.', '') } catch { return null }
 }

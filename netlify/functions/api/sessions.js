@@ -1,9 +1,14 @@
-import { supabase } from '../lib/supabase.js'
+import { getSession, listSessions, listEvents, listPageviews, getRecordingChunks, getVisitor } from '../lib/db.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+const PERIOD_MS = {
+  '1h': 3600000, '6h': 21600000, '12h': 43200000,
+  '24h': 86400000, '7d': 604800000, '30d': 2592000000,
 }
 
 export default async (req) => {
@@ -13,8 +18,6 @@ export default async (req) => {
 
   const url = new URL(req.url)
   const params = url.searchParams
-
-  // Check if requesting a single session by ID
   const sessionId = params.get('id')
 
   if (sessionId) {
@@ -26,73 +29,36 @@ export default async (req) => {
 
 async function getSessionDetail(sessionId) {
   try {
-    // Get session
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('id', sessionId)
-      .single()
-
-    if (sessionError || !session) {
-      return Response.json(
-        { error: 'Session not found' },
-        { status: 404, headers: CORS_HEADERS }
-      )
+    const session = await getSession(sessionId)
+    if (!session) {
+      return Response.json({ error: 'Session not found' }, { status: 404, headers: CORS_HEADERS })
     }
 
-    // Get events for this session
-    const { data: events } = await supabase
-      .from('events')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('timestamp', { ascending: true })
+    const [events, pageviews, chunks, visitor] = await Promise.all([
+      listEvents((e) => e.session_id === sessionId),
+      listPageviews((pv) => pv.session_id === sessionId),
+      getRecordingChunks(sessionId),
+      getVisitor(session.visitor_id),
+    ])
 
-    // Get pageviews for this session
-    const { data: pageviews } = await supabase
-      .from('pageviews')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('entered_at', { ascending: true })
-
-    // Get recording chunks for this session
-    const { data: recordings } = await supabase
-      .from('recordings')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('chunk_index', { ascending: true })
-
-    // Get visitor info
-    const { data: visitor } = await supabase
-      .from('visitors')
-      .select('*')
-      .eq('visitor_id', session.visitor_id)
-      .single()
-
-    // Flatten recording data into a single events array for rrweb-player
     const recordingEvents = []
-    if (recordings) {
-      for (const chunk of recordings) {
-        if (Array.isArray(chunk.data)) {
-          recordingEvents.push(...chunk.data)
-        }
+    for (const chunk of chunks) {
+      if (Array.isArray(chunk.data)) {
+        recordingEvents.push(...chunk.data)
       }
     }
 
     return Response.json({
       session,
       visitor,
-      events: events || [],
-      pageviews: pageviews || [],
+      events,
+      pageviews,
       recording: recordingEvents,
       has_recording: recordingEvents.length > 0,
     }, { headers: CORS_HEADERS })
-
   } catch (error) {
     console.error('Session detail error:', error)
-    return Response.json(
-      { error: 'Internal server error' },
-      { status: 500, headers: CORS_HEADERS }
-    )
+    return Response.json({ error: 'Internal server error' }, { status: 500, headers: CORS_HEADERS })
   }
 }
 
@@ -100,7 +66,6 @@ async function getSessionList(params) {
   try {
     const page = parseInt(params.get('page') || '1')
     const limit = parseInt(params.get('limit') || '50')
-    const offset = (page - 1) * limit
     const abandonment = params.get('abandonment')
     const device = params.get('device')
     const source = params.get('source')
@@ -109,78 +74,36 @@ async function getSessionList(params) {
     const start = params.get('start')
     const end = params.get('end')
 
-    let query = supabase
-      .from('sessions')
-      .select('*', { count: 'exact' })
-      .order('started_at', { ascending: false })
-      .range(offset, offset + limit - 1)
-
-    // Filters
-    if (abandonment === 'cart') {
-      query = query.eq('abandonment_type', 'cart')
-    } else if (abandonment === 'checkout') {
-      query = query.eq('abandonment_type', 'checkout')
-    } else if (abandonment === 'any') {
-      query = query.not('abandonment_type', 'is', null)
-    }
-
-    if (device) {
-      query = query.eq('device_type', device)
-    }
-
-    if (source) {
-      query = query.eq('utm_source', source)
-    }
-
-    if (hasRecording === 'true') {
-      query = query.eq('has_recording', true)
-    }
-
-    // Time filtering
-    if (period) {
-      const now = new Date()
-      const periodMs = {
-        '1h': 3600000,
-        '6h': 21600000,
-        '12h': 43200000,
-        '24h': 86400000,
-        '7d': 604800000,
-        '30d': 2592000000,
-      }
-      if (periodMs[period]) {
-        const since = new Date(now.getTime() - periodMs[period]).toISOString()
-        query = query.gte('started_at', since)
-      }
+    let since = null
+    if (period && PERIOD_MS[period]) {
+      since = new Date(Date.now() - PERIOD_MS[period]).toISOString()
     } else if (start) {
-      query = query.gte('started_at', start)
-      if (end) {
-        query = query.lte('started_at', end)
-      }
+      since = start
     }
 
-    const { data: sessions, count, error } = await query
-
-    if (error) {
-      console.error('Sessions query error:', error)
-      return Response.json(
-        { error: 'Failed to fetch sessions' },
-        { status: 500, headers: CORS_HEADERS }
-      )
+    const filter = (s) => {
+      if (since && s.started_at < since) return false
+      if (end && s.started_at > end) return false
+      if (abandonment === 'cart' && s.abandonment_type !== 'cart') return false
+      if (abandonment === 'checkout' && s.abandonment_type !== 'checkout') return false
+      if (abandonment === 'any' && !s.abandonment_type) return false
+      if (device && s.device_type !== device) return false
+      if (source && s.utm_source !== source) return false
+      if (hasRecording === 'true' && !s.has_recording) return false
+      return true
     }
+
+    const { sessions, total } = await listSessions(filter, { limit, offset: (page - 1) * limit })
 
     return Response.json({
-      sessions: sessions || [],
-      total: count || 0,
+      sessions,
+      total,
       page,
       limit,
-      total_pages: Math.ceil((count || 0) / limit),
+      total_pages: Math.ceil(total / limit),
     }, { headers: CORS_HEADERS })
-
   } catch (error) {
     console.error('Session list error:', error)
-    return Response.json(
-      { error: 'Internal server error' },
-      { status: 500, headers: CORS_HEADERS }
-    )
+    return Response.json({ error: 'Internal server error' }, { status: 500, headers: CORS_HEADERS })
   }
 }

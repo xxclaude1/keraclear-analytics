@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase.js'
+import { upsertFunnel, listFunnels, countEvents } from '../lib/db.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -39,19 +39,13 @@ async function handlePost(req) {
       return Response.json({ error: 'date and ad_spend required' }, { status: 400, headers: CORS_HEADERS })
     }
 
-    const { error } = await supabase
-      .from('funnels')
-      .upsert({
-        date,
-        platform: platform || 'all',
-        ad_spend: parseFloat(ad_spend),
-      }, { onConflict: 'date,platform' })
-
-    if (error) {
+    try {
+      await upsertFunnel({ date, platform: platform || 'all', ad_spend: parseFloat(ad_spend) })
+      return Response.json({ status: 'ok' }, { headers: CORS_HEADERS })
+    } catch (error) {
       console.error('Add spend error:', error)
       return Response.json({ error: 'Failed to save' }, { status: 500, headers: CORS_HEADERS })
     }
-    return Response.json({ status: 'ok' }, { headers: CORS_HEADERS })
   }
 
   if (action === 'bulk_spend') {
@@ -60,43 +54,39 @@ async function handlePost(req) {
       return Response.json({ error: 'rows array required' }, { status: 400, headers: CORS_HEADERS })
     }
 
-    const records = rows.map(r => ({
-      date: r.date,
-      platform: r.platform || 'all',
-      ad_spend: parseFloat(r.ad_spend || r.spend || 0),
-    }))
-
-    const { error } = await supabase
-      .from('funnels')
-      .upsert(records, { onConflict: 'date,platform' })
-
-    if (error) {
+    try {
+      for (const r of rows) {
+        await upsertFunnel({
+          date: r.date,
+          platform: r.platform || 'all',
+          ad_spend: parseFloat(r.ad_spend || r.spend || 0),
+        })
+      }
+      return Response.json({ status: 'ok', imported: rows.length }, { headers: CORS_HEADERS })
+    } catch (error) {
       console.error('Bulk spend error:', error)
       return Response.json({ error: 'Failed to save' }, { status: 500, headers: CORS_HEADERS })
     }
-    return Response.json({ status: 'ok', imported: records.length }, { headers: CORS_HEADERS })
   }
 
   if (action === 'save_costs') {
     const { date, cogs_per_unit, shipping_cost, processing_fee_pct, refund_rate_pct } = body
     const targetDate = date || new Date().toISOString().split('T')[0]
 
-    const { error } = await supabase
-      .from('funnels')
-      .upsert({
+    try {
+      await upsertFunnel({
         date: targetDate,
         platform: 'all',
         cogs_per_unit: parseFloat(cogs_per_unit || 0),
         shipping_cost: parseFloat(shipping_cost || 0),
         processing_fee_pct: parseFloat(processing_fee_pct || 2.9),
         refund_rate_pct: parseFloat(refund_rate_pct || 0),
-      }, { onConflict: 'date,platform' })
-
-    if (error) {
+      })
+      return Response.json({ status: 'ok' }, { headers: CORS_HEADERS })
+    } catch (error) {
       console.error('Save costs error:', error)
       return Response.json({ error: 'Failed to save' }, { status: 500, headers: CORS_HEADERS })
     }
-    return Response.json({ status: 'ok' }, { headers: CORS_HEADERS })
   }
 
   return Response.json({ error: 'Unknown action' }, { status: 400, headers: CORS_HEADERS })
@@ -115,49 +105,37 @@ async function handleGet(req) {
 
   try {
     // Fetch ad spend data
-    const { data: spendData } = await supabase
-      .from('funnels')
-      .select('*')
-      .gte('date', sinceDate)
-      .order('date', { ascending: true })
+    const spendData = await listFunnels(sinceDate)
 
     // Fetch funnel event counts
     const steps = ['landing_page_view', 'add_to_cart', 'checkout_initiated', 'checkout_completed']
     const counts = {}
     await Promise.all(steps.map(async (step) => {
-      const { count } = await supabase
-        .from('events')
-        .select('id', { count: 'exact', head: true })
-        .eq('event_type', step)
-        .gte('timestamp', sinceISO)
-      counts[step] = count || 0
+      counts[step] = await countEvents(step, sinceISO)
     }))
 
     // Aggregate spend
-    const totalSpend = (spendData || []).reduce((sum, r) => sum + parseFloat(r.ad_spend || 0), 0)
-    const totalRevenue = (spendData || []).reduce((sum, r) => sum + parseFloat(r.revenue || 0), 0)
+    const totalSpend = spendData.reduce((sum, r) => sum + parseFloat(r.ad_spend || 0), 0)
+    const totalRevenue = spendData.reduce((sum, r) => sum + parseFloat(r.revenue || 0), 0)
     const totalOrders = counts.checkout_completed || 0
 
     // Get the most recent cost settings
-    const latestCosts = (spendData || []).filter(r => r.cogs_per_unit > 0).pop() || {
+    const latestCosts = spendData.filter(r => r.cogs_per_unit > 0).pop() || {
       cogs_per_unit: 0, shipping_cost: 0, processing_fee_pct: 2.9, refund_rate_pct: 0,
     }
 
-    // Calculate revenue from checkout_completed events if not manually set
-    // For now use totalRevenue from funnels table; if 0, estimate from orders
     const revenue = totalRevenue > 0 ? totalRevenue : 0
+    const visitors = counts.landing_page_view || 0
 
     // Revenue metrics
     const aov = totalOrders > 0 ? revenue / totalOrders : 0
-    const visitors = counts.landing_page_view || 0
     const rpv = visitors > 0 ? revenue / visitors : 0
-    const sessions = visitors // approximate
-    const revenuePerSession = sessions > 0 ? revenue / sessions : 0
+    const revenuePerSession = visitors > 0 ? revenue / visitors : 0
 
     // Ad metrics
     const roas = totalSpend > 0 ? revenue / totalSpend : 0
     const cpa = totalOrders > 0 ? totalSpend / totalOrders : 0
-    const cpm = sessions > 0 ? (totalSpend / sessions) * 1000 : 0
+    const cpm = visitors > 0 ? (totalSpend / visitors) * 1000 : 0
     const costPerATC = counts.add_to_cart > 0 ? totalSpend / counts.add_to_cart : 0
     const costPerCheckout = counts.checkout_initiated > 0 ? totalSpend / counts.checkout_initiated : 0
     const costPerPurchase = cpa
@@ -170,7 +148,6 @@ async function handleGet(req) {
       { step: 'Purchase', event: 'checkout_completed', count: counts.checkout_completed, cost_per: costPerPurchase },
     ]
 
-    // Add conversion rates
     for (let i = 0; i < funnelEconomics.length; i++) {
       const prev = i === 0 ? funnelEconomics[0].count : funnelEconomics[i - 1].count
       funnelEconomics[i].conversion_rate = prev > 0 ? (funnelEconomics[i].count / prev) * 100 : 0
@@ -197,7 +174,7 @@ async function handleGet(req) {
     const netProfit = revenue - totalSpend - totalCOGS - totalShipping - totalFees - totalRefunds
 
     // Trend data (daily)
-    const trendData = (spendData || []).map(row => ({
+    const trendData = spendData.map(row => ({
       date: row.date,
       ad_spend: parseFloat(row.ad_spend || 0),
       revenue: parseFloat(row.revenue || 0),
@@ -205,41 +182,11 @@ async function handleGet(req) {
     }))
 
     return Response.json({
-      revenue: {
-        total: revenue,
-        aov,
-        rpv,
-        revenue_per_session: revenuePerSession,
-      },
-      spend: {
-        total: totalSpend,
-        roas,
-        cpa,
-        cpm,
-        cost_per_atc: costPerATC,
-        cost_per_checkout: costPerCheckout,
-        cost_per_purchase: costPerPurchase,
-      },
+      revenue: { total: revenue, aov, rpv, revenue_per_session: revenuePerSession },
+      spend: { total: totalSpend, roas, cpa, cpm, cost_per_atc: costPerATC, cost_per_checkout: costPerCheckout, cost_per_purchase: costPerPurchase },
       funnel_economics: funnelEconomics,
-      contribution: {
-        cogs,
-        shipping,
-        processing_fee_pct: processingPct,
-        refund_rate_pct: refundPct,
-        gross_margin: grossMargin,
-        contribution_margin: contributionMargin,
-        break_even_cpa: breakEvenCPA,
-        profit_per_order: profitPerOrder,
-      },
-      pnl: {
-        revenue,
-        ad_spend: totalSpend,
-        cogs: totalCOGS,
-        shipping: totalShipping,
-        fees: totalFees,
-        refunds: totalRefunds,
-        net_profit: netProfit,
-      },
+      contribution: { cogs, shipping, processing_fee_pct: processingPct, refund_rate_pct: refundPct, gross_margin: grossMargin, contribution_margin: contributionMargin, break_even_cpa: breakEvenCPA, profit_per_order: profitPerOrder },
+      pnl: { revenue, ad_spend: totalSpend, cogs: totalCOGS, shipping: totalShipping, fees: totalFees, refunds: totalRefunds, net_profit: netProfit },
       trends: trendData,
       orders: totalOrders,
       costs: latestCosts,

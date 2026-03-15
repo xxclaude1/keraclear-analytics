@@ -4,9 +4,7 @@ import {
   Activity, Monitor, Smartphone, Globe, Clock, Eye,
   ShoppingCart, CreditCard, LogOut, MousePointer, ArrowRight,
 } from 'lucide-react'
-import useRealtime from '../hooks/useRealtime'
 import { formatDuration } from '../utils/formatters'
-import { supabase } from '../lib/supabase'
 
 const EVENT_CONFIG = {
   page_view: { icon: Eye, color: 'text-neutral', label: 'viewed' },
@@ -35,148 +33,29 @@ export default function LiveVisitors() {
     return () => clearInterval(timer)
   }, [])
 
-  // Initial fetch of active visitors
+  // Fetch and poll every 15 seconds
   useEffect(() => {
     fetchActiveVisitors()
-    // Refresh every 15 seconds as a fallback
     const interval = setInterval(fetchActiveVisitors, 15000)
     return () => clearInterval(interval)
   }, [])
 
   async function fetchActiveVisitors() {
     try {
-      // Get active visitors
-      const { data: activeVisitors } = await supabase
-        .from('visitors')
-        .select('*')
-        .eq('is_active', true)
-        .order('last_seen_at', { ascending: false })
+      const res = await fetch('/api/visitors')
+      const data = await res.json()
 
-      if (!activeVisitors) {
-        setLoading(false)
-        return
+      setVisitors(data.visitors || [])
+
+      // Update activity feed from server
+      if (data.recent_events?.length > 0) {
+        setActivityFeed(data.recent_events)
       }
-
-      // Enrich with session data
-      const enriched = await Promise.all(
-        activeVisitors.map(async (visitor) => {
-          const { data: sessions } = await supabase
-            .from('sessions')
-            .select('id, started_at, landing_page, has_recording, utm_source, referrer')
-            .eq('visitor_id', visitor.visitor_id)
-            .is('ended_at', null)
-            .order('started_at', { ascending: false })
-            .limit(1)
-
-          const session = sessions?.[0]
-
-          let currentPage = session?.landing_page || '/'
-          let pageTrail = []
-
-          if (session) {
-            const { data: pageviews } = await supabase
-              .from('pageviews')
-              .select('page_url')
-              .eq('session_id', session.id)
-              .order('entered_at', { ascending: true })
-
-            pageTrail = (pageviews || []).map(p => p.page_url)
-            if (pageTrail.length > 0) {
-              currentPage = pageTrail[pageTrail.length - 1]
-            }
-          }
-
-          return {
-            visitor_id: visitor.visitor_id,
-            device_type: visitor.device_type,
-            browser: visitor.browser,
-            country: visitor.country,
-            city: visitor.city,
-            utm_source: visitor.utm_source || session?.utm_source,
-            referrer: visitor.first_referrer || session?.referrer,
-            current_page: currentPage,
-            page_trail: pageTrail,
-            session_id: session?.id,
-            has_recording: session?.has_recording,
-            started_at: session?.started_at,
-            last_seen_at: visitor.last_seen_at,
-          }
-        })
-      )
-
-      setVisitors(enriched)
     } catch (err) {
       console.error('Failed to fetch active visitors:', err)
     }
     setLoading(false)
   }
-
-  // Realtime: listen for new events
-  useRealtime('events', null, (payload) => {
-    if (payload.eventType === 'INSERT') {
-      const event = payload.new
-      // Skip noisy events
-      if (['scroll_depth', 'page_exit', 'session_end'].includes(event.event_type)) return
-
-      const config = EVENT_CONFIG[event.event_type]
-      if (!config) return
-
-      setActivityFeed((prev) => {
-        const newFeed = [
-          {
-            id: event.id,
-            visitor_id: event.visitor_id,
-            event_type: event.event_type,
-            page_url: event.page_url || event.event_data?.page_url,
-            text: event.event_data?.text,
-            timestamp: event.timestamp,
-          },
-          ...prev,
-        ].slice(0, 100) // Keep last 100 events
-        return newFeed
-      })
-    }
-  })
-
-  // Realtime: listen for visitor status changes
-  useRealtime('visitors', null, (payload) => {
-    if (payload.eventType === 'UPDATE') {
-      const updated = payload.new
-      if (updated.is_active === false) {
-        setVisitors((prev) => prev.filter((v) => v.visitor_id !== updated.visitor_id))
-      }
-    }
-    // Refresh on any change to get full data
-    fetchActiveVisitors()
-  })
-
-  // Load recent events for feed on mount
-  useEffect(() => {
-    async function loadRecentEvents() {
-      const since = new Date(Date.now() - 3600000).toISOString() // Last hour
-      const { data } = await supabase
-        .from('events')
-        .select('*')
-        .gte('timestamp', since)
-        .not('event_type', 'in', '("scroll_depth","page_exit","session_end","click")')
-        .order('timestamp', { ascending: false })
-        .limit(50)
-
-      if (data) {
-        setActivityFeed(
-          data.map((e) => ({
-            id: e.id,
-            visitor_id: e.visitor_id,
-            event_type: e.event_type,
-            page_url: e.page_url || e.event_data?.page_url,
-            text: e.event_data?.text,
-            timestamp: e.timestamp,
-          }))
-        )
-      }
-    }
-    loadRecentEvents()
-  }, [])
 
   function getTimeOnSite(startedAt) {
     if (!startedAt) return '0s'
@@ -207,18 +86,10 @@ export default function LiveVisitors() {
     const page = event.page_url || ''
     const label = config?.label || event.event_type
 
-    if (event.event_type === 'add_to_cart') {
-      return `Visitor ${shortId} added to cart`
-    }
-    if (event.event_type === 'checkout_completed') {
-      return `Visitor ${shortId} completed purchase!`
-    }
-    if (event.event_type === 'cart_abandonment') {
-      return `Visitor ${shortId} abandoned cart`
-    }
-    if (event.event_type === 'checkout_abandonment') {
-      return `Visitor ${shortId} abandoned checkout`
-    }
+    if (event.event_type === 'add_to_cart') return `Visitor ${shortId} added to cart`
+    if (event.event_type === 'checkout_completed') return `Visitor ${shortId} completed purchase!`
+    if (event.event_type === 'cart_abandonment') return `Visitor ${shortId} abandoned cart`
+    if (event.event_type === 'checkout_abandonment') return `Visitor ${shortId} abandoned checkout`
 
     return `Visitor ${shortId} ${label} ${page}`
   }
@@ -299,7 +170,6 @@ export default function LiveVisitors() {
                     }}
                   >
                     <div className="flex items-start gap-3">
-                      {/* Device Icon */}
                       <div className="mt-0.5">
                         {visitor.device_type === 'mobile' ? (
                           <Smartphone size={18} className="text-text-secondary" />
@@ -308,7 +178,6 @@ export default function LiveVisitors() {
                         )}
                       </div>
 
-                      {/* Visitor Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-mono font-medium text-text-primary">
@@ -317,12 +186,10 @@ export default function LiveVisitors() {
                           <div className="w-1.5 h-1.5 bg-positive rounded-full animate-pulse" />
                         </div>
 
-                        {/* Current page */}
                         <p className="text-sm text-accent mt-0.5 truncate">
                           {visitor.current_page}
                         </p>
 
-                        {/* Meta row */}
                         <div className="flex items-center gap-3 mt-1.5 text-xs text-text-secondary">
                           <span className="flex items-center gap-1">
                             <Globe size={11} />
@@ -330,7 +197,7 @@ export default function LiveVisitors() {
                           </span>
                           <span className="flex items-center gap-1">
                             <Clock size={11} />
-                            {getTimeOnSite(visitor.started_at)}
+                            {getTimeOnSite(visitor.last_seen_at)}
                           </span>
                           <span className="flex items-center gap-1">
                             <Globe size={11} />
@@ -339,7 +206,6 @@ export default function LiveVisitors() {
                           <span>{visitor.page_trail?.length || 0} pages</span>
                         </div>
 
-                        {/* Page trail */}
                         {visitor.page_trail?.length > 1 && (
                           <div className="flex items-center gap-1 mt-2 overflow-x-auto">
                             {visitor.page_trail.slice(-5).map((page, i) => (
@@ -356,7 +222,6 @@ export default function LiveVisitors() {
                         )}
                       </div>
 
-                      {/* Recording indicator */}
                       {visitor.has_recording && (
                         <div className="shrink-0 flex items-center gap-1 text-xs text-accent">
                           <div className="w-1.5 h-1.5 bg-negative rounded-full animate-pulse" />
@@ -388,7 +253,7 @@ export default function LiveVisitors() {
                   Events will stream here in real-time
                 </div>
               ) : (
-                activityFeed.map((event) => {
+                activityFeed.map((event, idx) => {
                   const config = EVENT_CONFIG[event.event_type] || {
                     icon: Eye,
                     color: 'text-text-secondary',
@@ -396,7 +261,7 @@ export default function LiveVisitors() {
                   const IconComp = config.icon
 
                   return (
-                    <div key={event.id} className="px-4 py-2.5 hover:bg-bg-tertiary/20">
+                    <div key={event.id || idx} className="px-4 py-2.5 hover:bg-bg-tertiary/20">
                       <div className="flex items-start gap-2">
                         <IconComp size={14} className={`mt-0.5 shrink-0 ${config.color}`} />
                         <div className="flex-1 min-w-0">

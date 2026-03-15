@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase.js'
+import { listVisitors, listSessions, listPageviews, listEvents } from '../lib/db.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -12,63 +12,27 @@ export default async (req) => {
   }
 
   try {
-    // Get all active visitors
-    const { data: activeVisitors, error: visitorsError } = await supabase
-      .from('visitors')
-      .select('*')
-      .eq('is_active', true)
-      .order('last_seen_at', { ascending: false })
+    const activeVisitors = await listVisitors((v) => v.is_active === true)
+    activeVisitors.sort((a, b) => new Date(b.last_seen_at) - new Date(a.last_seen_at))
 
-    if (visitorsError) {
-      console.error('Active visitors error:', visitorsError)
-      return Response.json(
-        { error: 'Failed to fetch visitors' },
-        { status: 500, headers: CORS_HEADERS }
-      )
-    }
-
-    // For each active visitor, get their current session and recent events
     const enrichedVisitors = await Promise.all(
-      (activeVisitors || []).map(async (visitor) => {
-        // Get current (most recent open) session
-        const { data: sessions } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('visitor_id', visitor.visitor_id)
-          .is('ended_at', null)
-          .order('started_at', { ascending: false })
-          .limit(1)
+      activeVisitors.map(async (visitor) => {
+        const { sessions } = await listSessions(
+          (s) => s.visitor_id === visitor.visitor_id && !s.ended_at
+        )
+        const currentSession = sessions[0] || null
 
-        const currentSession = sessions?.[0] || null
-
-        // Get recent pageviews for this session
         let pageTrail = []
-        if (currentSession) {
-          const { data: pageviews } = await supabase
-            .from('pageviews')
-            .select('page_url, entered_at')
-            .eq('session_id', currentSession.id)
-            .order('entered_at', { ascending: true })
-
-          pageTrail = (pageviews || []).map(p => p.page_url)
-        }
-
-        // Get the most recent event to determine current page
         let currentPage = currentSession?.landing_page || '/'
-        if (currentSession) {
-          const { data: lastPageview } = await supabase
-            .from('pageviews')
-            .select('page_url')
-            .eq('session_id', currentSession.id)
-            .order('entered_at', { ascending: false })
-            .limit(1)
 
-          if (lastPageview?.[0]) {
-            currentPage = lastPageview[0].page_url
+        if (currentSession) {
+          const pvs = await listPageviews((pv) => pv.session_id === currentSession.id)
+          pageTrail = pvs.map(p => p.page_url)
+          if (pageTrail.length > 0) {
+            currentPage = pageTrail[pageTrail.length - 1]
           }
         }
 
-        // Calculate time on site
         const timeOnSite = currentSession
           ? Math.round((Date.now() - new Date(currentSession.started_at).getTime()) / 1000)
           : 0
@@ -94,16 +58,28 @@ export default async (req) => {
       })
     )
 
+    // Get recent events for activity feed (last hour, excluding noise)
+    const sinceHour = new Date(Date.now() - 3600000).toISOString()
+    const recentEvents = await listEvents(
+      (e) => !['scroll_depth', 'page_exit', 'session_end', 'click'].includes(e.event_type)
+        && e.timestamp >= sinceHour,
+      { sinceDate: sinceHour, limit: 50 }
+    )
+
     return Response.json({
       count: enrichedVisitors.length,
       visitors: enrichedVisitors,
+      recent_events: recentEvents.map(e => ({
+        id: e.id,
+        visitor_id: e.visitor_id,
+        event_type: e.event_type,
+        page_url: e.page_url || e.event_data?.page_url,
+        text: e.event_data?.text,
+        timestamp: e.timestamp,
+      })),
     }, { headers: CORS_HEADERS })
-
   } catch (error) {
     console.error('Visitors error:', error)
-    return Response.json(
-      { error: 'Internal server error' },
-      { status: 500, headers: CORS_HEADERS }
-    )
+    return Response.json({ error: 'Internal server error' }, { status: 500, headers: CORS_HEADERS })
   }
 }

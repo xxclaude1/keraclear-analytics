@@ -4,11 +4,10 @@ import { PlayCircle, Monitor, Smartphone, Filter, ChevronLeft, ChevronRight } fr
 import TimeFilter from '../components/TimeFilter'
 import useTimeFilter from '../hooks/useTimeFilter'
 import { formatDuration, formatRelativeTime } from '../utils/formatters'
-import { supabase } from '../lib/supabase'
 
 export default function Sessions() {
   const navigate = useNavigate()
-  const { period, setPeriod, getQueryParams } = useTimeFilter('24h')
+  const { period, setPeriod } = useTimeFilter('24h')
   const [sessions, setSessions] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -28,50 +27,20 @@ export default function Sessions() {
   async function fetchSessions() {
     setLoading(true)
     try {
-      const timeParams = getQueryParams()
-      let query = supabase
-        .from('sessions')
-        .select('*', { count: 'exact' })
-        .order('started_at', { ascending: false })
-        .range((page - 1) * limit, page * limit - 1)
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        period,
+      })
+      if (filters.abandonment) params.set('abandonment', filters.abandonment)
+      if (filters.device) params.set('device', filters.device)
+      if (filters.has_recording) params.set('has_recording', filters.has_recording)
 
-      // Apply time filter
-      if (timeParams.period) {
-        const periodMs = {
-          '1h': 3600000, '6h': 21600000, '12h': 43200000,
-          '24h': 86400000, '7d': 604800000, '30d': 2592000000,
-        }
-        if (periodMs[timeParams.period]) {
-          const since = new Date(Date.now() - periodMs[timeParams.period]).toISOString()
-          query = query.gte('started_at', since)
-        }
-      }
+      const res = await fetch(`/api/sessions?${params}`)
+      const data = await res.json()
 
-      // Apply filters
-      if (filters.abandonment === 'cart') {
-        query = query.eq('abandonment_type', 'cart')
-      } else if (filters.abandonment === 'checkout') {
-        query = query.eq('abandonment_type', 'checkout')
-      } else if (filters.abandonment === 'any') {
-        query = query.not('abandonment_type', 'is', null)
-      }
-
-      if (filters.device) {
-        query = query.eq('device_type', filters.device)
-      }
-
-      if (filters.has_recording === 'true') {
-        query = query.eq('has_recording', true)
-      }
-
-      const { data, count, error } = await query
-
-      if (error) {
-        console.error('Error fetching sessions:', error)
-      } else {
-        setSessions(data || [])
-        setTotal(count || 0)
-      }
+      setSessions(data.sessions || [])
+      setTotal(data.total || 0)
     } catch (err) {
       console.error('Failed to fetch sessions:', err)
     }

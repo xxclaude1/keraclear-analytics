@@ -1,4 +1,4 @@
-import { supabase } from './lib/supabase.js'
+import { insertRecording, updateSession } from './lib/db.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -29,30 +29,8 @@ export default async (req) => {
   }
 
   try {
-    // Insert recording chunk
-    const { error: recordingError } = await supabase
-      .from('recordings')
-      .insert({
-        session_id,
-        visitor_id,
-        chunk_index,
-        data,
-      })
-
-    if (recordingError) {
-      console.error('Recording insert error:', recordingError)
-      return Response.json(
-        { error: 'Failed to store recording' },
-        { status: 500, headers: CORS_HEADERS }
-      )
-    }
-
-    // Mark session as having a recording
-    await supabase
-      .from('sessions')
-      .update({ has_recording: true })
-      .eq('id', session_id)
-      .catch(() => {})
+    await insertRecording(session_id, visitor_id, chunk_index, data)
+    try { await updateSession(session_id, { has_recording: true }) } catch {}
 
     return Response.json(
       { status: 'ok', chunk_index },

@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase.js'
+import { listSessions, listVisitors, listPageviews, listEvents, countEvents } from '../lib/db.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -7,12 +7,8 @@ const CORS_HEADERS = {
 }
 
 const PERIOD_MS = {
-  '1h': 3600000,
-  '6h': 21600000,
-  '12h': 43200000,
-  '24h': 86400000,
-  '7d': 604800000,
-  '30d': 2592000000,
+  '1h': 3600000, '6h': 21600000, '12h': 43200000,
+  '24h': 86400000, '7d': 604800000, '30d': 2592000000,
 }
 
 export default async (req) => {
@@ -23,8 +19,6 @@ export default async (req) => {
   const url = new URL(req.url)
   const params = url.searchParams
   const section = params.get('section') || 'overview'
-
-  // Determine time range
   const period = params.get('period') || '24h'
   const now = new Date()
   let since
@@ -40,22 +34,15 @@ export default async (req) => {
   const sinceISO = since.toISOString()
 
   try {
-    if (section === 'overview') {
-      return await getOverview(sinceISO)
-    } else if (section === 'traffic_over_time') {
-      return await getTrafficOverTime(sinceISO, period)
-    } else if (section === 'sources') {
-      return await getSources(sinceISO)
-    } else if (section === 'devices') {
-      return await getDevices(sinceISO)
-    } else if (section === 'top_pages') {
-      return await getTopPages(sinceISO)
-    } else if (section === 'geo') {
-      return await getGeo(sinceISO)
-    } else if (section === 'funnel') {
-      return await getFunnel(sinceISO)
-    } else if (section === 'all') {
-      // Return everything in one call
+    if (section === 'overview') return json(await getOverviewData(sinceISO))
+    if (section === 'traffic_over_time') return json(await getTrafficOverTimeData(sinceISO, period))
+    if (section === 'sources') return json(await getSourcesData(sinceISO))
+    if (section === 'devices') return json(await getDevicesData(sinceISO))
+    if (section === 'top_pages') return json(await getTopPagesData(sinceISO))
+    if (section === 'geo') return json(await getGeoData(sinceISO))
+    if (section === 'funnel') return json(await getFunnelData(sinceISO))
+    if (section === 'abandonment') return json(await getAbandonmentData(sinceISO))
+    if (section === 'all') {
       const [overview, trafficOverTime, sources, devices, topPages, geo, funnel] = await Promise.all([
         getOverviewData(sinceISO),
         getTrafficOverTimeData(sinceISO, period),
@@ -65,10 +52,7 @@ export default async (req) => {
         getGeoData(sinceISO),
         getFunnelData(sinceISO),
       ])
-      return Response.json({
-        overview, traffic_over_time: trafficOverTime, sources, devices,
-        top_pages: topPages, geo, funnel,
-      }, { headers: CORS_HEADERS })
+      return json({ overview, traffic_over_time: trafficOverTime, sources, devices, top_pages: topPages, geo, funnel })
     }
 
     return Response.json({ error: 'Unknown section' }, { status: 400, headers: CORS_HEADERS })
@@ -78,72 +62,65 @@ export default async (req) => {
   }
 }
 
-// ===== DATA FETCHERS (return raw data) =====
+function json(data) {
+  return Response.json(data, { headers: CORS_HEADERS })
+}
+
+// ===== DATA FETCHERS =====
 
 async function getOverviewData(sinceISO) {
-  const [sessionsRes, visitorsRes, pageviewsRes] = await Promise.all([
-    supabase.from('sessions').select('id, visitor_id, duration_seconds, page_count, started_at', { count: 'exact' }).gte('started_at', sinceISO),
-    supabase.from('visitors').select('visitor_id, first_seen_at', { count: 'exact' }).gte('last_seen_at', sinceISO),
-    supabase.from('pageviews').select('id', { count: 'exact' }).gte('entered_at', sinceISO),
+  const [allSessions, allVisitors, allPageviews] = await Promise.all([
+    listSessions((s) => s.started_at >= sinceISO),
+    listVisitors((v) => v.last_seen_at >= sinceISO),
+    listPageviews((pv) => pv.entered_at >= sinceISO, { sinceDate: sinceISO }),
   ])
 
-  const sessions = sessionsRes.data || []
-  const totalSessions = sessionsRes.count || 0
-  const totalVisitors = visitorsRes.count || 0
-  const totalPageviews = pageviewsRes.count || 0
+  const sessions = allSessions.sessions
+  const totalSessions = allSessions.total
+  const visitors = allVisitors
+  const totalVisitors = visitors.length
+  const totalPageviews = allPageviews.length
 
-  // Avg session duration
-  const durationsWithValues = sessions.filter(s => s.duration_seconds > 0)
-  const avgDuration = durationsWithValues.length > 0
-    ? Math.round(durationsWithValues.reduce((sum, s) => sum + s.duration_seconds, 0) / durationsWithValues.length)
-    : 0
+  const durWithValues = sessions.filter(s => s.duration_seconds > 0)
+  const avgDuration = durWithValues.length > 0
+    ? Math.round(durWithValues.reduce((sum, s) => sum + s.duration_seconds, 0) / durWithValues.length) : 0
 
-  // Bounce rate (sessions with only 1 page view)
-  const bounceSessions = sessions.filter(s => (s.page_count || 0) <= 1).length
-  const bounceRate = totalSessions > 0 ? ((bounceSessions / totalSessions) * 100).toFixed(1) : 0
+  const bounces = sessions.filter(s => (s.page_count || 0) <= 1).length
+  const bounceRate = totalSessions > 0 ? ((bounces / totalSessions) * 100) : 0
 
-  // New vs returning
-  const visitors = visitorsRes.data || []
-  const newVisitors = visitors.filter(v => new Date(v.first_seen_at) >= new Date(sinceISO)).length
-  const returningVisitors = totalVisitors - newVisitors
-  const newPct = totalVisitors > 0 ? ((newVisitors / totalVisitors) * 100).toFixed(1) : 0
+  const newVisitors = visitors.filter(v => v.first_seen_at >= sinceISO).length
+  const newPct = totalVisitors > 0 ? ((newVisitors / totalVisitors) * 100) : 0
 
   return {
     total_visitors: totalVisitors,
     total_sessions: totalSessions,
     total_pageviews: totalPageviews,
     avg_duration: avgDuration,
-    bounce_rate: parseFloat(bounceRate),
+    bounce_rate: parseFloat(bounceRate.toFixed(1)),
     new_visitors: newVisitors,
-    returning_visitors: returningVisitors,
-    new_pct: parseFloat(newPct),
+    returning_visitors: totalVisitors - newVisitors,
+    new_pct: parseFloat(newPct.toFixed(1)),
   }
 }
 
 async function getTrafficOverTimeData(sinceISO, period) {
-  // Determine granularity
   let granularity = 'hour'
   if (period === '1h') granularity = 'minute'
   else if (['6h', '12h', '24h'].includes(period)) granularity = 'hour'
   else granularity = 'day'
 
-  const { data: sessions } = await supabase
-    .from('sessions')
-    .select('started_at, visitor_id')
-    .gte('started_at', sinceISO)
-    .order('started_at', { ascending: true })
+  const { sessions } = await listSessions((s) => s.started_at >= sinceISO)
 
-  // Group by time bucket
   const buckets = {}
-  for (const s of (sessions || [])) {
+  for (const s of sessions) {
     const d = new Date(s.started_at)
     let key
     if (granularity === 'minute') {
-      key = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+      key = `${pad(d.getHours())}:${pad(d.getMinutes())}`
     } else if (granularity === 'hour') {
-      key = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`
+      key = `${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:00`
     } else {
-      key = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+      key = `${pad(d.getMonth()+1)}/${pad(d.getDate())}`
     }
 
     if (!buckets[key]) buckets[key] = { time: key, sessions: 0, visitors: new Set() }
@@ -152,20 +129,15 @@ async function getTrafficOverTimeData(sinceISO, period) {
   }
 
   return Object.values(buckets).map(b => ({
-    time: b.time,
-    sessions: b.sessions,
-    visitors: b.visitors.size,
+    time: b.time, sessions: b.sessions, visitors: b.visitors.size,
   }))
 }
 
 async function getSourcesData(sinceISO) {
-  const { data: sessions } = await supabase
-    .from('sessions')
-    .select('utm_source, utm_medium, utm_campaign, referrer, visitor_id')
-    .gte('started_at', sinceISO)
+  const { sessions } = await listSessions((s) => s.started_at >= sinceISO)
 
   const sourceMap = {}
-  for (const s of (sessions || [])) {
+  for (const s of sessions) {
     const source = s.utm_source || extractDomain(s.referrer) || 'Direct'
     const medium = s.utm_medium || (s.referrer ? 'referral' : 'none')
     const key = `${source}|${medium}`
@@ -184,13 +156,10 @@ async function getSourcesData(sinceISO) {
 }
 
 async function getDevicesData(sinceISO) {
-  const { data: sessions } = await supabase
-    .from('sessions')
-    .select('device_type')
-    .gte('started_at', sinceISO)
+  const { sessions } = await listSessions((s) => s.started_at >= sinceISO)
 
   const counts = { mobile: 0, desktop: 0 }
-  for (const s of (sessions || [])) {
+  for (const s of sessions) {
     if (s.device_type === 'mobile') counts.mobile++
     else counts.desktop++
   }
@@ -198,19 +167,19 @@ async function getDevicesData(sinceISO) {
   return {
     mobile: counts.mobile,
     desktop: counts.desktop,
-    mobile_pct: total > 0 ? ((counts.mobile / total) * 100).toFixed(1) : 0,
-    desktop_pct: total > 0 ? ((counts.desktop / total) * 100).toFixed(1) : 0,
+    mobile_pct: total > 0 ? parseFloat(((counts.mobile / total) * 100).toFixed(1)) : 0,
+    desktop_pct: total > 0 ? parseFloat(((counts.desktop / total) * 100).toFixed(1)) : 0,
   }
 }
 
 async function getTopPagesData(sinceISO) {
-  const { data: pageviews } = await supabase
-    .from('pageviews')
-    .select('page_url, time_on_page_seconds')
-    .gte('entered_at', sinceISO)
+  const pageviews = await listPageviews(
+    (pv) => pv.entered_at >= sinceISO,
+    { sinceDate: sinceISO }
+  )
 
   const pageMap = {}
-  for (const p of (pageviews || [])) {
+  for (const p of pageviews) {
     const url = p.page_url || '/'
     if (!pageMap[url]) pageMap[url] = { page_url: url, views: 0, total_time: 0, time_count: 0 }
     pageMap[url].views++
@@ -221,24 +190,17 @@ async function getTopPagesData(sinceISO) {
   }
 
   return Object.values(pageMap)
-    .map(p => ({
-      page_url: p.page_url,
-      views: p.views,
-      avg_time: p.time_count > 0 ? Math.round(p.total_time / p.time_count) : 0,
-    }))
+    .map(p => ({ page_url: p.page_url, views: p.views, avg_time: p.time_count > 0 ? Math.round(p.total_time / p.time_count) : 0 }))
     .sort((a, b) => b.views - a.views)
     .slice(0, 20)
 }
 
 async function getGeoData(sinceISO) {
-  const { data: sessions } = await supabase
-    .from('sessions')
-    .select('country, city')
-    .gte('started_at', sinceISO)
+  const { sessions } = await listSessions((s) => s.started_at >= sinceISO)
 
   const countryMap = {}
   const cityMap = {}
-  for (const s of (sessions || [])) {
+  for (const s of sessions) {
     const country = s.country || 'Unknown'
     const city = s.city || 'Unknown'
     countryMap[country] = (countryMap[country] || 0) + 1
@@ -249,80 +211,87 @@ async function getGeoData(sinceISO) {
   }
 
   return {
-    countries: Object.entries(countryMap)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 15),
-    cities: Object.entries(cityMap)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 15),
+    countries: Object.entries(countryMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 15),
+    cities: Object.entries(cityMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 15),
   }
 }
 
 async function getFunnelData(sinceISO) {
-  const steps = [
-    'landing_page_view',
-    'vsl_page_view',
-    'sales_page_view',
-    'add_to_cart',
-    'checkout_initiated',
-    'checkout_completed',
-  ]
+  const steps = ['landing_page_view', 'vsl_page_view', 'sales_page_view', 'add_to_cart', 'checkout_initiated', 'checkout_completed']
 
   const counts = {}
-  await Promise.all(
-    steps.map(async (step) => {
-      const { count } = await supabase
-        .from('events')
-        .select('id', { count: 'exact', head: true })
-        .eq('event_type', step)
-        .gte('timestamp', sinceISO)
-      counts[step] = count || 0
-    })
-  )
+  await Promise.all(steps.map(async (step) => {
+    counts[step] = await countEvents(step, sinceISO)
+  }))
 
-  const result = steps.map((step, i) => {
+  return steps.map((step, i) => {
     const count = counts[step]
     const prevCount = i === 0 ? count : counts[steps[i - 1]]
-    const conversionRate = prevCount > 0 ? ((count / prevCount) * 100).toFixed(1) : 0
-    const overallRate = counts[steps[0]] > 0 ? ((count / counts[steps[0]]) * 100).toFixed(1) : 0
+    const conversionRate = prevCount > 0 ? ((count / prevCount) * 100) : 0
+    const overallRate = counts[steps[0]] > 0 ? ((count / counts[steps[0]]) * 100) : 0
     const dropOff = i === 0 ? 0 : prevCount - count
 
     return {
-      step,
-      count,
-      conversion_rate: parseFloat(conversionRate),
-      overall_rate: parseFloat(overallRate),
+      step, count,
+      conversion_rate: parseFloat(conversionRate.toFixed(1)),
+      overall_rate: parseFloat(overallRate.toFixed(1)),
       drop_off: dropOff,
     }
   })
-
-  return result
 }
 
-// ===== RESPONSE WRAPPERS =====
+async function getAbandonmentData(sinceISO) {
+  const periodMs = Date.now() - new Date(sinceISO).getTime()
+  const prevSinceISO = new Date(new Date(sinceISO).getTime() - periodMs).toISOString()
 
-async function getOverview(sinceISO) {
-  return Response.json(await getOverviewData(sinceISO), { headers: CORS_HEADERS })
-}
-async function getTrafficOverTime(sinceISO, period) {
-  return Response.json(await getTrafficOverTimeData(sinceISO, period), { headers: CORS_HEADERS })
-}
-async function getSources(sinceISO) {
-  return Response.json(await getSourcesData(sinceISO), { headers: CORS_HEADERS })
-}
-async function getDevices(sinceISO) {
-  return Response.json(await getDevicesData(sinceISO), { headers: CORS_HEADERS })
-}
-async function getTopPages(sinceISO) {
-  return Response.json(await getTopPagesData(sinceISO), { headers: CORS_HEADERS })
-}
-async function getGeo(sinceISO) {
-  return Response.json(await getGeoData(sinceISO), { headers: CORS_HEADERS })
-}
-async function getFunnel(sinceISO) {
-  return Response.json(await getFunnelData(sinceISO), { headers: CORS_HEADERS })
+  // Get sessions and events counts
+  const { sessions: allSessions } = await listSessions((s) => s.started_at >= sinceISO)
+  const { sessions: prevSessions } = await listSessions((s) => s.started_at >= prevSinceISO && s.started_at < sinceISO)
+
+  const cartAbandons = allSessions.filter(s => s.abandonment_type === 'cart').length
+  const checkoutAbandons = allSessions.filter(s => s.abandonment_type === 'checkout').length
+  const prevCartAbandons = prevSessions.filter(s => s.abandonment_type === 'cart').length
+  const prevCheckoutAbandons = prevSessions.filter(s => s.abandonment_type === 'checkout').length
+
+  const [totalATC, totalCO] = await Promise.all([
+    countEvents('add_to_cart', sinceISO),
+    countEvents('checkout_initiated', sinceISO),
+  ])
+
+  const cartRate = totalATC > 0 ? (cartAbandons / totalATC) * 100 : 0
+  const checkoutRate = totalCO > 0 ? (checkoutAbandons / totalCO) * 100 : 0
+  const prevCartRate = totalATC > 0 ? (prevCartAbandons / Math.max(totalATC, 1)) * 100 : 0
+  const prevCheckoutRate = totalCO > 0 ? (prevCheckoutAbandons / Math.max(totalCO, 1)) * 100 : 0
+
+  // Flagged recordings
+  const flagged = allSessions
+    .filter(s => s.abandonment_type && s.has_recording)
+    .slice(0, 10)
+
+  // Exit page heatmap
+  const exitMap = {}
+  for (const s of allSessions.filter(s => s.abandonment_type)) {
+    const page = s.exit_page || 'Unknown'
+    exitMap[page] = (exitMap[page] || 0) + 1
+  }
+  const totalExits = Object.values(exitMap).reduce((s, v) => s + v, 0) || 1
+  const exitPages = Object.entries(exitMap)
+    .map(([page, count]) => ({ page, count, pct: (count / totalExits) * 100 }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+
+  return {
+    cart_rate: cartRate,
+    checkout_rate: checkoutRate,
+    cart_abandons: cartAbandons,
+    checkout_abandons: checkoutAbandons,
+    cart_trend: cartRate - prevCartRate,
+    checkout_trend: checkoutRate - prevCheckoutRate,
+    total_atc: totalATC,
+    total_co: totalCO,
+    flagged_recordings: flagged,
+    exit_pages: exitPages,
+  }
 }
 
 // ===== HELPERS =====

@@ -5,7 +5,6 @@ import {
   ExternalLink, AlertTriangle, Play, Pause,
 } from 'lucide-react'
 import { formatDuration, formatDateTime, formatRelativeTime } from '../utils/formatters'
-import { supabase } from '../lib/supabase'
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4]
 
@@ -43,42 +42,20 @@ export default function SessionReplay() {
     setLoading(true)
     setError(null)
     try {
-      // Fetch session
-      const { data: sessionData, error: sessionErr } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('id', id)
-        .single()
+      const res = await fetch(`/api/sessions?id=${encodeURIComponent(id)}`)
+      const data = await res.json()
 
-      if (sessionErr || !sessionData) {
-        setError('Session not found')
+      if (!res.ok || data.error) {
+        setError(data.error || 'Session not found')
         setLoading(false)
         return
       }
-      setSession(sessionData)
 
-      // Fetch related data in parallel
-      const [visitorRes, eventsRes, pageviewsRes, recordingsRes] = await Promise.all([
-        supabase.from('visitors').select('*').eq('visitor_id', sessionData.visitor_id).single(),
-        supabase.from('events').select('*').eq('session_id', id).order('timestamp', { ascending: true }),
-        supabase.from('pageviews').select('*').eq('session_id', id).order('entered_at', { ascending: true }),
-        supabase.from('recordings').select('*').eq('session_id', id).order('chunk_index', { ascending: true }),
-      ])
-
-      setVisitor(visitorRes.data)
-      setEvents(eventsRes.data || [])
-      setPageviews(pageviewsRes.data || [])
-
-      // Flatten recording chunks
-      const allEvents = []
-      if (recordingsRes.data) {
-        for (const chunk of recordingsRes.data) {
-          if (Array.isArray(chunk.data)) {
-            allEvents.push(...chunk.data)
-          }
-        }
-      }
-      setRecording(allEvents)
+      setSession(data.session)
+      setVisitor(data.visitor)
+      setEvents(data.events || [])
+      setPageviews(data.pageviews || [])
+      setRecording(data.recording || [])
     } catch (err) {
       console.error('Failed to fetch session:', err)
       setError('Failed to load session')
@@ -91,7 +68,6 @@ export default function SessionReplay() {
       const rrwebPlayer = await import('rrweb-player')
       const RRWebPlayer = rrwebPlayer.default || rrwebPlayer
 
-      // Clear container
       if (containerRef.current) {
         containerRef.current.innerHTML = ''
       }
@@ -124,17 +100,10 @@ export default function SessionReplay() {
 
   function getEventIcon(type) {
     const icons = {
-      page_view: '📄',
-      landing_page_view: '🏠',
-      vsl_page_view: '🎬',
-      sales_page_view: '🛍️',
-      add_to_cart: '🛒',
-      checkout_initiated: '💳',
-      checkout_completed: '✅',
-      cart_abandonment: '🔴',
-      checkout_abandonment: '🔴',
-      click: '👆',
-      scroll_depth: '📜',
+      page_view: '📄', landing_page_view: '🏠', vsl_page_view: '🎬',
+      sales_page_view: '🛍️', add_to_cart: '🛒', checkout_initiated: '💳',
+      checkout_completed: '✅', cart_abandonment: '🔴', checkout_abandonment: '🔴',
+      click: '👆', scroll_depth: '📜',
     }
     return icons[type] || '📌'
   }
@@ -142,14 +111,10 @@ export default function SessionReplay() {
   function getEventLabel(event) {
     const labels = {
       page_view: `Viewed ${event.event_data?.page_url || event.page_url || 'page'}`,
-      landing_page_view: 'Landed on site',
-      vsl_page_view: 'Viewed VSL',
-      sales_page_view: 'Viewed product page',
-      add_to_cart: 'Added to cart',
-      checkout_initiated: 'Started checkout',
-      checkout_completed: 'Completed purchase',
-      cart_abandonment: 'Abandoned cart',
-      checkout_abandonment: 'Abandoned checkout',
+      landing_page_view: 'Landed on site', vsl_page_view: 'Viewed VSL',
+      sales_page_view: 'Viewed product page', add_to_cart: 'Added to cart',
+      checkout_initiated: 'Started checkout', checkout_completed: 'Completed purchase',
+      cart_abandonment: 'Abandoned cart', checkout_abandonment: 'Abandoned checkout',
       click: `Clicked "${(event.event_data?.text || '').substring(0, 40)}"`,
       scroll_depth: `Scrolled to ${event.event_data?.depth}%`,
       page_exit: `Left ${event.event_data?.page_url || 'page'}`,
@@ -171,10 +136,7 @@ export default function SessionReplay() {
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <AlertTriangle size={24} className="text-negative" />
         <p className="text-text-secondary">{error}</p>
-        <button
-          onClick={() => navigate('/sessions')}
-          className="text-sm text-accent hover:underline"
-        >
+        <button onClick={() => navigate('/sessions')} className="text-sm text-accent hover:underline">
           Back to Sessions
         </button>
       </div>
@@ -208,11 +170,9 @@ export default function SessionReplay() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Player Area */}
         <div className="lg:col-span-2">
-          {/* Device Frame */}
           <div className={`bg-bg-secondary border border-border rounded-lg overflow-hidden ${
             isMobile ? 'max-w-sm mx-auto' : ''
           }`}>
-            {/* Browser/Phone Chrome */}
             <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-bg-tertiary">
               {isMobile ? (
                 <>
@@ -235,11 +195,7 @@ export default function SessionReplay() {
               )}
             </div>
 
-            {/* Player Container */}
-            <div
-              ref={containerRef}
-              className="w-full bg-white min-h-[300px] relative"
-            >
+            <div ref={containerRef} className="w-full bg-white min-h-[300px] relative">
               {recording.length === 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-bg-primary">
                   <Play size={48} className="text-text-secondary/30 mb-3" />
@@ -251,7 +207,6 @@ export default function SessionReplay() {
               )}
             </div>
 
-            {/* Speed Controls */}
             {recording.length > 0 && (
               <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border">
                 <span className="text-xs text-text-secondary mr-2">Speed:</span>
@@ -275,7 +230,6 @@ export default function SessionReplay() {
 
         {/* Metadata Sidebar */}
         <div className="space-y-4">
-          {/* Visitor Info Card */}
           <div className="bg-bg-secondary border border-border rounded-lg p-4">
             <h3 className="text-sm font-medium text-text-primary mb-3">Visitor Info</h3>
             <div className="space-y-2.5">
@@ -295,37 +249,20 @@ export default function SessionReplay() {
                 value={session?.utm_source || session?.referrer || 'Direct'}
               />
               {session?.utm_campaign && (
-                <MetaRow
-                  icon={<Layers size={14} />}
-                  label="Campaign"
-                  value={session.utm_campaign}
-                />
+                <MetaRow icon={<Layers size={14} />} label="Campaign" value={session.utm_campaign} />
               )}
-              <MetaRow
-                icon={<Clock size={14} />}
-                label="Duration"
-                value={formatDuration(session?.duration_seconds)}
-              />
-              <MetaRow
-                icon={<Layers size={14} />}
-                label="Pages"
-                value={`${session?.page_count || 0} pages`}
-              />
+              <MetaRow icon={<Clock size={14} />} label="Duration" value={formatDuration(session?.duration_seconds)} />
+              <MetaRow icon={<Layers size={14} />} label="Pages" value={`${session?.page_count || 0} pages`} />
             </div>
 
             <div className="mt-3 pt-3 border-t border-border">
-              <p className="text-xs text-text-secondary">
-                Started: {formatDateTime(session?.started_at)}
-              </p>
+              <p className="text-xs text-text-secondary">Started: {formatDateTime(session?.started_at)}</p>
               {session?.ended_at && (
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Ended: {formatDateTime(session.ended_at)}
-                </p>
+                <p className="text-xs text-text-secondary mt-0.5">Ended: {formatDateTime(session.ended_at)}</p>
               )}
             </div>
           </div>
 
-          {/* Event Timeline */}
           <div className="bg-bg-secondary border border-border rounded-lg p-4">
             <h3 className="text-sm font-medium text-text-primary mb-3">
               Event Timeline ({events.filter(e => !['click', 'scroll_depth', 'page_exit'].includes(e.event_type)).length})
@@ -334,20 +271,11 @@ export default function SessionReplay() {
               {events
                 .filter(e => !['click', 'scroll_depth', 'page_exit'].includes(e.event_type))
                 .map((event, i) => (
-                <div
-                  key={event.id || i}
-                  className="flex items-start gap-2 py-1.5 text-sm"
-                >
-                  <span className="text-base leading-none mt-0.5">
-                    {getEventIcon(event.event_type)}
-                  </span>
+                <div key={event.id || i} className="flex items-start gap-2 py-1.5 text-sm">
+                  <span className="text-base leading-none mt-0.5">{getEventIcon(event.event_type)}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-text-primary text-xs truncate">
-                      {getEventLabel(event)}
-                    </p>
-                    <p className="text-text-secondary text-[10px]">
-                      {formatRelativeTime(event.timestamp)}
-                    </p>
+                    <p className="text-text-primary text-xs truncate">{getEventLabel(event)}</p>
+                    <p className="text-text-secondary text-[10px]">{formatRelativeTime(event.timestamp)}</p>
                   </div>
                 </div>
               ))}
@@ -357,7 +285,6 @@ export default function SessionReplay() {
             </div>
           </div>
 
-          {/* Pages Visited */}
           <div className="bg-bg-secondary border border-border rounded-lg p-4">
             <h3 className="text-sm font-medium text-text-primary mb-3">
               Pages Visited ({pageviews.length})
@@ -368,9 +295,7 @@ export default function SessionReplay() {
                   <div className={`w-1.5 h-1.5 rounded-full ${
                     i === 0 ? 'bg-positive' : i === pageviews.length - 1 ? 'bg-negative' : 'bg-neutral'
                   }`} />
-                  <span className="text-xs text-text-secondary truncate flex-1">
-                    {pv.page_url}
-                  </span>
+                  <span className="text-xs text-text-secondary truncate flex-1">{pv.page_url}</span>
                   {pv.time_on_page_seconds && (
                     <span className="text-[10px] text-text-secondary font-mono">
                       {formatDuration(pv.time_on_page_seconds)}
