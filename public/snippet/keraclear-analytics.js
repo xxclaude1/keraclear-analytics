@@ -17,21 +17,26 @@
   var SESSION_COOKIE = '_kca_sid';
   var CART_FLAG_KEY = '_kca_atc';
   var CHECKOUT_FLAG_KEY = '_kca_co';
+  var RECORDING_INTERVAL = 10000; // send recording chunks every 10 seconds
+  var RRWEB_CDN = 'https://cdn.jsdelivr.net/npm/rrweb@2.0.0-alpha.17/dist/rrweb-all.umd.cjs';
 
   // Auto-detect endpoint from script src if not hardcoded
+  var BASE_ORIGIN = '';
   if (ENDPOINT === '{{ANALYTICS_ENDPOINT}}' || !ENDPOINT) {
     var scripts = document.getElementsByTagName('script');
     for (var i = 0; i < scripts.length; i++) {
       var src = scripts[i].src || '';
       if (src.indexOf('keraclear-analytics.js') !== -1) {
         var url = new URL(src);
-        ENDPOINT = url.origin + '/.netlify/functions/ingest';
+        BASE_ORIGIN = url.origin;
+        ENDPOINT = BASE_ORIGIN + '/.netlify/functions/ingest';
         break;
       }
     }
   }
 
   if (!ENDPOINT) return;
+  var RECORDINGS_ENDPOINT = BASE_ORIGIN + '/.netlify/functions/recordings';
 
   // ========================================
   // UTILITY FUNCTIONS
@@ -495,5 +500,78 @@
 
     queueEvent('click', data);
   }, true);
+
+  // ========================================
+  // SESSION RECORDING (rrweb)
+  // ========================================
+
+  var recordingBuffer = [];
+  var chunkIndex = 0;
+
+  function sendRecordingChunk() {
+    if (recordingBuffer.length === 0) return;
+
+    var chunk = {
+      session_id: sessionId,
+      visitor_id: visitorId,
+      chunk_index: chunkIndex++,
+      data: recordingBuffer.splice(0),
+    };
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(RECORDINGS_ENDPOINT, JSON.stringify(chunk));
+    } else {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', RECORDINGS_ENDPOINT, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify(chunk));
+    }
+  }
+
+  // Load rrweb from CDN and start recording
+  function initRecording() {
+    var script = document.createElement('script');
+    script.src = RRWEB_CDN;
+    script.async = true;
+    script.onload = function () {
+      if (!window.rrweb || !window.rrweb.record) return;
+
+      window.rrweb.record({
+        emit: function (event) {
+          recordingBuffer.push(event);
+        },
+        maskAllInputs: true,
+        maskTextSelector: '[data-kca-mask]',
+        blockSelector: '[data-kca-block]',
+        sampling: {
+          mousemove: 50,
+          mouseInteraction: true,
+          scroll: 150,
+          media: 800,
+          input: 'last',
+        },
+        recordCanvas: false,
+        collectFonts: false,
+      });
+
+      // Send recording chunks periodically
+      setInterval(sendRecordingChunk, RECORDING_INTERVAL);
+    };
+    document.head.appendChild(script);
+  }
+
+  // Start recording after page is interactive
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initRecording();
+  } else {
+    window.addEventListener('DOMContentLoaded', initRecording);
+  }
+
+  // Flush recording buffer on page unload
+  var originalDetectAbandonment = detectAbandonment;
+  detectAbandonment = function () {
+    sendRecordingChunk();
+    originalDetectAbandonment();
+  };
 
 })();
