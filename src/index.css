@@ -1253,6 +1253,269 @@ a:hover { color: var(--accent-hover); }
   text-align: center;
 }
 
+/* ── Avatar Hypothesis Cards ─────────────────────── */
+.avatar-hypothesis-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 32px;
+  overflow: hidden;
+}
+.avatar-hypothesis-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+.avatar-hypothesis-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+.avatar-hypothesis-num {
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.avatar-hypothesis-profile {
+  padding: 24px;
+}
+.avatar-hypothesis-profile h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 24px 0 12px;
+}
+.avatar-hypothesis-profile h4:first-child { margin-top: 0; }
+.avatar-hypothesis-profile p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+.avatar-hypothesis-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 14px 18px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.avatar-hypothesis-meta strong { color: var(--text-primary); }
+
+.avatar-evidence-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.avatar-evidence-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--border-light);
+}
+.evidence-quote {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--text-primary);
+  line-height: 1.7;
+}
+.evidence-source {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.avatar-trigger {
+  padding: 16px;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: var(--radius-sm);
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+}
+
+.hypothesis-statement {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: var(--radius-sm);
+}
+.hypothesis-statement h4 {
+  color: var(--green) !important;
+  margin: 0 0 8px !important;
+  font-size: 11px !important;
+  letter-spacing: 0.1em;
+}
+.hypothesis-statement p {
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  color: var(--text-secondary) !important;
+}
+
+/* ── 3-2-2 Framework Grid ────────────────────────── */
+.three-two-two-grid {
+  padding: 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+.three-two-two-grid > h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+}
+.framework-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+.framework-col h5 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+.framework-slot {
+  padding: 14px;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+}
+.slot-label {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.slot-angle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.slot-placeholder {
+  font-size: 11px;
+  color: var(--yellow);
+  font-style: italic;
+  padding: 8px 12px;
+  background: var(--yellow-dim);
+  border-radius: 4px;
+  text-align: center;
+}
+.framework-math {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Journey Stages ──────────────────────────────── */
+.journey-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.journey-stage {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+.stage-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 50%;
+}
+.journey-stage strong {
+  font-size: 13px;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 2px;
+}
+.journey-stage p {
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+  line-height: 1.6 !important;
+  margin: 0 !important;
+}
+
+/* ── Framework Summary ───────────────────────────── */
+.framework-total-summary {
+  margin-top: 32px;
+  padding: 24px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.framework-total-summary h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+}
+.framework-total-summary tfoot td {
+  background: var(--bg-tertiary);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.next-steps-card {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: var(--radius-sm);
+}
+.next-steps-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 12px;
+}
+.next-steps-card ol {
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 2;
+}
+.next-steps-card strong { color: var(--text-primary); }
+
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 768px) {
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }

@@ -11,6 +11,7 @@ const SECTIONS = [
   'Core Desires',
   'Copywriting Implications',
   'Final Summary for Copy Team',
+  'Avatar Hypotheses & 3-2-2 Framework',
 ]
 
 function Section({ title, children }) {
@@ -1219,6 +1220,685 @@ export default function SoapResearch() {
                   Not a treatment. Not a medicine. A daily wash. The fungus angle is the mechanism.
                   The "doesn't come back" is the promise. The daily-use framing makes it feel effortless.
                 </p>
+              </div>
+            </div>
+          </Section>
+        )}
+
+        {/* ===== 11. AVATAR HYPOTHESES & 3-2-2 FRAMEWORK ===== */}
+        {activeSection === 10 && (
+          <Section title="11) Avatar Hypotheses & 3-2-2 Ad Testing Framework">
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 24, fontSize: 14, lineHeight: 1.7 }}>
+              Four distinct customer avatars derived from deep market research. Each avatar represents a <strong>hypothesis</strong> about
+              who will buy and what emotional trigger will convert them. The 3-2-2 Method structures each concept into
+              <strong> 3 hook/static variations</strong>, <strong>2 primary text variations</strong>, and <strong>2 headline variations</strong> —
+              giving us 12 ad combinations per avatar (48 total across all 4). Copy and headlines will be written collaboratively in the next phase.
+            </p>
+
+            {/* ── AVATAR 1: THE ACTIVE GYM GUY ── */}
+            <div className="avatar-hypothesis-card">
+              <div className="avatar-hypothesis-header">
+                <span className="avatar-hypothesis-num">AVATAR 1</span>
+                <h3>Mike Brennan — "The Active Gym Guy"</h3>
+              </div>
+
+              <div className="avatar-hypothesis-profile">
+                <div className="avatar-hypothesis-meta">
+                  <div><strong>Age:</strong> 35–55</div>
+                  <div><strong>Gender:</strong> Male</div>
+                  <div><strong>Income:</strong> $60–120K</div>
+                  <div><strong>Status:</strong> Married, kids at home</div>
+                  <div><strong>Platforms:</strong> Reddit (r/Biohackers, r/AskMen, r/tifu), Amazon, gym forums</div>
+                </div>
+
+                <h4>Psychographic Profile</h4>
+                <p>
+                  Active guy — lifts weights, plays sports, maybe does BJJ or runs. Picks up athlete's foot from the gym shower or locker room.
+                  Has had it on and off for years but treats it the way men treat most health issues: minimal effort, maximum annoyance.
+                  Buys whatever cream is on the shelf, uses it for 4 days, thinks it's gone, stops — and it comes back.
+                  He's not devastated by it emotionally, but he's <strong>frustrated</strong> and <strong>annoyed</strong>.
+                  He wants something that just works without a complicated routine.
+                </p>
+
+                <h4>Research-Backed Pain Points</h4>
+                <ul className="avatar-evidence-list">
+                  <li>
+                    <span className="evidence-quote">"I tried topical creams, anti fungals, powders, sprays. Nothing ever worked so I just left it untreated for over a decade."</span>
+                    <span className="evidence-source">— Reddit r/Biohackers, 15-year sufferer, 1,676 upvotes</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"My feet haven't felt this good since I was a kid it is such a strange feeling."</span>
+                    <span className="evidence-source">— Reddit r/Biohackers, after finally finding a solution</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I had it for YEARS and thought it was just something you lived with."</span>
+                    <span className="evidence-source">— Reddit r/tifu, 336 upvotes</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I desperately need help... every morning it seems like it looks better but then I go to work and it seems like it's getting worse."</span>
+                    <span className="evidence-source">— Reddit r/AskMen, on treatment-resistant jock itch</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"Since he started using Defense Soap a year ago... nothing."</span>
+                    <span className="evidence-source">— Amazon review (Kevin S., Wrestling Coach)</span>
+                  </li>
+                </ul>
+
+                <h4>Core Emotional Trigger</h4>
+                <p className="avatar-trigger">
+                  <strong>Frustration with the recurrence cycle.</strong> He's not embarrassed — he's pissed off. He's tired of buying creams that work for a week
+                  then stop. He wants one product that replaces his whole routine and just handles it. The selling emotion is <strong>annoyance → simplicity → relief</strong>.
+                </p>
+
+                <div className="hypothesis-statement">
+                  <h4>HYPOTHESIS</h4>
+                  <p>
+                    <strong>I believe</strong> active men aged 35–55 who use gyms/locker rooms will respond to a
+                    <strong> "replace your soap, kill the fungus, stop the cycle" </strong>
+                    message because research shows they have normalized the condition for years, tried and abandoned multiple OTC treatments,
+                    and will buy a simple daily-use solution that doesn't require a complicated routine. Their primary trigger is
+                    <strong> recurrence frustration</strong>, not shame.
+                  </p>
+                </div>
+              </div>
+
+              <div className="three-two-two-grid">
+                <h4>3-2-2 Framework</h4>
+                <div className="framework-row">
+                  <div className="framework-col">
+                    <h5>3 Hook / Static Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook A</span>
+                      <div className="slot-angle">Angle: Recurrence / "keeps coming back"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook B</span>
+                      <div className="slot-angle">Angle: Tried everything / product graveyard</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook C</span>
+                      <div className="slot-angle">Angle: Simplicity / "replaced my soap"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                  <div className="framework-col">
+                    <h5>2 Primary Text Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Text A</span>
+                      <div className="slot-angle">Frame: Problem-agitate-solve (gym routine angle)</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Text B</span>
+                      <div className="slot-angle">Frame: Testimonial / "I was skeptical but..." mechanism</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                  <div className="framework-col">
+                    <h5>2 Headline Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Headline A</span>
+                      <div className="slot-angle">Direct benefit / result-oriented</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Headline B</span>
+                      <div className="slot-angle">Mechanism / "how it works" curiosity</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="framework-math">
+                  3 hooks x 2 texts x 2 headlines = <strong>12 ad combinations</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* ── AVATAR 2: THE YOUNG WOMAN ── */}
+            <div className="avatar-hypothesis-card">
+              <div className="avatar-hypothesis-header">
+                <span className="avatar-hypothesis-num">AVATAR 2</span>
+                <h3>Sophie Langford — "The Sandal Season Dreader"</h3>
+              </div>
+
+              <div className="avatar-hypothesis-profile">
+                <div className="avatar-hypothesis-meta">
+                  <div><strong>Age:</strong> 22–38</div>
+                  <div><strong>Gender:</strong> Female</div>
+                  <div><strong>Income:</strong> $40–90K</div>
+                  <div><strong>Status:</strong> Single or in relationship, image-conscious</div>
+                  <div><strong>Platforms:</strong> Reddit (r/TheGirlSurvivalGuide, r/TwoXChromosomes), Mumsnet, Instagram, TikTok</div>
+                </div>
+
+                <h4>Psychographic Profile</h4>
+                <p>
+                  Young woman who contracted toenail fungus from a pedicure, shared shower, or pool years ago. She hides it under nail polish,
+                  avoids open-toed shoes, and dreads summer every year. Her fungus has become an <strong>identity wound</strong> — she describes herself
+                  as "someone with ugly feet." She has reorganized her entire wardrobe (closed-toe shoes only), avoids nail salons, skips beach days,
+                  and panics before any event that requires bare feet. The shame runs deeper than cosmetic — clinical data shows women experience
+                  <strong>statistically worse quality of life</strong> from fungal infections than men (DLQI 6.97 vs 5.73).
+                </p>
+
+                <h4>Research-Backed Pain Points</h4>
+                <ul className="avatar-evidence-list">
+                  <li>
+                    <span className="evidence-quote">"It's ruined my summer as I would love to wear sandals but feel so conscious."</span>
+                    <span className="evidence-source">— Mumsnet, AIBU thread</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"Tonight I'm literally sitting on the floor sobbing my eyes out... I'm so full of self hatred for not taking care of this in college."</span>
+                    <span className="evidence-source">— Reddit r/TwoXChromosomes, 852 upvotes</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"The nail fungus brought tremendous insecurity into life. I grew up to be a shy person as a result."</span>
+                    <span className="evidence-source">— Julia, age 25, People's Pharmacy</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"For 2 years I hide my feet for my boyfriend. This means we never can go to swimming pool or beach."</span>
+                    <span className="evidence-source">— Reddit r/relationship_advice</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I was in denial. I was resolved with getting pedicures all the time to mask the problem until I couldn't get them anymore."</span>
+                    <span className="evidence-source">— Emma, Bay Area Foot & Laser patient</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I have been embarrassed by my feet and toes for over 35 years until I tried EmoniNail."</span>
+                    <span className="evidence-source">— Trustpilot review</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I'll never forget the look on her face." (referring to a friend seeing her toenails at a salon)</span>
+                    <span className="evidence-source">— Emma, patient testimonial</span>
+                  </li>
+                </ul>
+
+                <h4>Clinical Data Supporting This Avatar</h4>
+                <ul className="avatar-evidence-list">
+                  <li>
+                    <span className="evidence-quote">44% of Americans are self-conscious about their feet. 66% have avoided open-toed shoes due to toenail concerns.</span>
+                    <span className="evidence-source">— Talker Research Survey</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">41% would reconsider dating someone with unkempt feet. 32% said infected people are less likely to secure romantic partners.</span>
+                    <span className="evidence-source">— Hong Kong Psychosocial Study (PMC4107486)</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">Women's quality of life impairment from onychomycosis is measurably worse than men's (DLQI 6.97 vs 5.73). Women show greater emotional improvement after treatment.</span>
+                    <span className="evidence-source">— Sex-Based Impact Study (PMC10617899)</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">38% of fungal nail infections are in Gen Z/Millennials (age 20-35).</span>
+                    <span className="evidence-source">— Talker Research</span>
+                  </li>
+                </ul>
+
+                <h4>Core Emotional Trigger</h4>
+                <p className="avatar-trigger">
+                  <strong>Shame, concealment, and lost femininity.</strong> She doesn't want a "treatment" — she wants her life back.
+                  She wants to wear sandals without thinking about it. She wants to get a pedicure with her friends and not panic.
+                  She wants to go to the beach with her boyfriend. The selling emotion is <strong>shame → hope → freedom</strong>.
+                  The transformation isn't medical — it's emotional liberation.
+                </p>
+
+                <div className="hypothesis-statement">
+                  <h4>HYPOTHESIS</h4>
+                  <p>
+                    <strong>I believe</strong> women aged 22–38 who hide their feet due to fungal infections will respond to a
+                    <strong> "get your sandals/pedicures/confidence back" </strong>
+                    message because research shows they experience statistically worse quality of life impact than men,
+                    have reorganized their entire lives around concealment (closed-toe shoes, skipping beaches, avoiding salons),
+                    and the emotional payoff of treatment is dramatically higher for women. Their primary trigger is
+                    <strong> seasonal shame (sandal season dread)</strong> and <strong>reclaiming feminine rituals</strong> (pedicures, beach days, dating confidence).
+                  </p>
+                </div>
+              </div>
+
+              <div className="three-two-two-grid">
+                <h4>3-2-2 Framework</h4>
+                <div className="framework-row">
+                  <div className="framework-col">
+                    <h5>3 Hook / Static Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook A</span>
+                      <div className="slot-angle">Angle: Sandal season dread / "summer is coming"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook B</span>
+                      <div className="slot-angle">Angle: Pedicure shame / "I haven't been to a salon in years"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook C</span>
+                      <div className="slot-angle">Angle: Dating/intimacy fear / hiding feet from partner</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                  <div className="framework-col">
+                    <h5>2 Primary Text Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Text A</span>
+                      <div className="slot-angle">Frame: Before/after emotional transformation (shame → freedom)</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Text B</span>
+                      <div className="slot-angle">Frame: "Letter to my younger self" / years of hiding narrative</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                  <div className="framework-col">
+                    <h5>2 Headline Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Headline A</span>
+                      <div className="slot-angle">Lifestyle transformation / "wear sandals again"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Headline B</span>
+                      <div className="slot-angle">Confidence/beauty angle / "feel beautiful barefoot"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="framework-math">
+                  3 hooks x 2 texts x 2 headlines = <strong>12 ad combinations</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* ── AVATAR 3: THE CONTAMINATION WORRIER ── */}
+            <div className="avatar-hypothesis-card">
+              <div className="avatar-hypothesis-header">
+                <span className="avatar-hypothesis-num">AVATAR 3</span>
+                <h3>Rachel Nguyen — "The Contamination Worrier"</h3>
+              </div>
+
+              <div className="avatar-hypothesis-profile">
+                <div className="avatar-hypothesis-meta">
+                  <div><strong>Age:</strong> 28–45</div>
+                  <div><strong>Gender:</strong> Female (primarily)</div>
+                  <div><strong>Income:</strong> $50–100K</div>
+                  <div><strong>Status:</strong> Married, young children at home</div>
+                  <div><strong>Platforms:</strong> Reddit (r/hygiene, r/Mommit, r/AmItheAsshole), Mumsnet, parenting forums</div>
+                </div>
+
+                <h4>Psychographic Profile</h4>
+                <p>
+                  Parent (usually mom) who either has foot fungus herself or lives with a partner who does, and is <strong>terrified of spreading it
+                  to her children</strong>. She Lysols the shower after every use, maintains separate towels, makes her partner wear socks in bed,
+                  and lies awake worrying about contamination. She may have already caught it from her partner, which adds resentment to the fear.
+                  Her partner often refuses to treat it properly, which creates relationship tension on top of the health anxiety.
+                  She's not just buying a product for herself — she's buying <strong>protection for her family</strong>.
+                </p>
+
+                <h4>Research-Backed Pain Points</h4>
+                <ul className="avatar-evidence-list">
+                  <li>
+                    <span className="evidence-quote">"I have never had a problem with foot fungus until five years ago, when my partner moved in with me. My life is a cycle of foot fungus treatment. I get it under control and then a week later I get it again."</span>
+                    <span className="evidence-source">— Reddit r/AmItheAsshole, 215 upvotes</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I got a foot fungus from my partner. It's been a battle for years."</span>
+                    <span className="evidence-source">— Reddit r/hygiene, towel contamination thread</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"Your husband is going to infect you. You need to Lysol the shower after every time he uses it and wear flip flops in the shower."</span>
+                    <span className="evidence-source">— Reddit r/hygiene, podiatry professional</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I'm infecting everything I touch even if I clean it. I've probably infected tons of people just from going to the bank."</span>
+                    <span className="evidence-source">— Reddit r/AskDocs, 18-year-old with full-body spread</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I'm really, REALLY scared my husband or baby will catch a fungal infection and I will never forgive myself if they do."</span>
+                    <span className="evidence-source">— Reddit r/NailFungus, young mother (22F)</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I caught it from my mom, and she caught it from the nail salon. I ended up getting infected after 2 showers."</span>
+                    <span className="evidence-source">— Reddit r/NailFungus comment</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"DP's longest lasting present to me is athlete's foot."</span>
+                    <span className="evidence-source">— Mumsnet, NellyBluth</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I fear I might infect others by doing so." (about walking barefoot)</span>
+                    <span className="evidence-source">— Phoenix Rising ME/CFS Forums</span>
+                  </li>
+                </ul>
+
+                <h4>Core Emotional Trigger</h4>
+                <p className="avatar-trigger">
+                  <strong>Fear-based protection instinct.</strong> This avatar isn't buying for vanity or comfort — she's buying to
+                  <strong> protect her children and stop the spread</strong>. The guilt of potentially infecting her baby or kids is
+                  overwhelming. She's also resentful that her partner won't take it seriously, creating a "you're putting our family at risk"
+                  dynamic. The selling emotion is <strong>fear → protection → control</strong>.
+                </p>
+
+                <div className="hypothesis-statement">
+                  <h4>HYPOTHESIS</h4>
+                  <p>
+                    <strong>I believe</strong> parents (primarily mothers) aged 28–45 with young children will respond to a
+                    <strong> "stop the spread / protect your family" </strong>
+                    message because research shows contamination anxiety is a massive driver — women report catching fungus from partners,
+                    Lysoling showers, maintaining separate towels, and lying awake worrying about their children. Their primary trigger is
+                    <strong> family protection instinct</strong> combined with <strong>frustration at a partner who won't treat it</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="three-two-two-grid">
+                <h4>3-2-2 Framework</h4>
+                <div className="framework-row">
+                  <div className="framework-col">
+                    <h5>3 Hook / Static Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook A</span>
+                      <div className="slot-angle">Angle: Shower contamination / "are you Lysoling after every shower?"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook B</span>
+                      <div className="slot-angle">Angle: Caught it from partner / relationship resentment</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook C</span>
+                      <div className="slot-angle">Angle: Protecting kids / "I'll never forgive myself if they catch it"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                  <div className="framework-col">
+                    <h5>2 Primary Text Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Text A</span>
+                      <div className="slot-angle">Frame: Household contamination cycle (towels, showers, bedsheets)</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Text B</span>
+                      <div className="slot-angle">Frame: "My partner gave it to me" — relatable couple frustration</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                  <div className="framework-col">
+                    <h5>2 Headline Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Headline A</span>
+                      <div className="slot-angle">Family protection / "keep your family fungus-free"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Headline B</span>
+                      <div className="slot-angle">Daily prevention / "the shower defense"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="framework-math">
+                  3 hooks x 2 texts x 2 headlines = <strong>12 ad combinations</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* ── AVATAR 4: THE CHRONIC LONG-TERM SUFFERER ── */}
+            <div className="avatar-hypothesis-card">
+              <div className="avatar-hypothesis-header">
+                <span className="avatar-hypothesis-num">AVATAR 4</span>
+                <h3>Dennis Hartwell — "The Decades-Long Sufferer"</h3>
+              </div>
+
+              <div className="avatar-hypothesis-profile">
+                <div className="avatar-hypothesis-meta">
+                  <div><strong>Age:</strong> 45–70</div>
+                  <div><strong>Gender:</strong> Male or Female</div>
+                  <div><strong>Income:</strong> $50–120K</div>
+                  <div><strong>Status:</strong> Married, older kids or grandkids</div>
+                  <div><strong>Platforms:</strong> Reddit (r/gratitude, r/NailFungus), People's Pharmacy, Gransnet, HealthUnlocked, Drugs.com</div>
+                </div>
+
+                <h4>Psychographic Profile</h4>
+                <p>
+                  This person has lived with fungal infections for <strong>10, 20, even 40+ years</strong>. They've cycled through every treatment —
+                  tea tree oil, Vicks VapoRub, Lamisil, Lotrimin, prescription lacquers, oral antifungals, even surgical nail removal — and nothing has
+                  permanently worked. They've spent <strong>hundreds or thousands of dollars</strong> over the decades. They've internalized the condition as
+                  "just how I am now." A username on one forum was literally <strong>"disgustingandashamed"</strong> — the emotional state has become the identity.
+                  They've given up hope. But buried under that resignation is a deep, quiet desire: <strong>"What if something actually worked?"</strong>
+                </p>
+
+                <h4>Research-Backed Pain Points</h4>
+                <ul className="avatar-evidence-list">
+                  <li>
+                    <span className="evidence-quote">"I had toenail fungus for most of my life, from like 10 years old until I finally got it cured when I was 40."</span>
+                    <span className="evidence-source">— Chronic sufferer, 30-year duration</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I have suffered with fungal toenails for many years... the problem has all but disappeared. This is truly a miracle."</span>
+                    <span className="evidence-source">— FungaSoap Amazon review (Suzanne, FL)</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I have had a very bad case of fungus under my toenails for the past 50 years... The results are miraculous."</span>
+                    <span className="evidence-source">— FungaSoap Amazon review (Herman, FL)</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I've had athletes foot for as long as I can remember. Decades. I have gone through 9 tubes of cream... the itching is back."</span>
+                    <span className="evidence-source">— HealthUnlocked, My Skin community</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"10 years wasting my time with tea tree oil and the anti fungal nail lacquer."</span>
+                    <span className="evidence-source">— Mumsnet, nail fungus thread</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I didn't go outside with my toes showing for years."</span>
+                    <span className="evidence-source">— Chronic sufferer research</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I've battled the fungus for 30 years with just about everything I could imagine."</span>
+                    <span className="evidence-source">— Earth Clinic Forum</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"It would cost about $22,000 for the 10-month treatment that only shows a complete cure rate of 17.8%. That's absolutely ridiculous!"</span>
+                    <span className="evidence-source">— NPR / KFF Health News, on Jublia pricing</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"I wouldn't have believed it if I hadn't done it myself."</span>
+                    <span className="evidence-source">— Chronic sufferer, after finding a solution</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"Yesterday while trimming my nails I realized, hey, they look pretty good! Thank you universe!"</span>
+                    <span className="evidence-source">— Reddit r/gratitude, 25-year sufferer</span>
+                  </li>
+                  <li>
+                    <span className="evidence-quote">"Once you have Athletes foot it is for life."</span>
+                    <span className="evidence-source">— Diabetes.co.uk Forum (Phillco3)</span>
+                  </li>
+                </ul>
+
+                <h4>The Emotional Journey (Mapped from Research)</h4>
+                <div className="journey-stages">
+                  <div className="journey-stage">
+                    <span className="stage-num">1</span>
+                    <div>
+                      <strong>Discovery</strong>
+                      <p>Notices symptoms, assumes it's minor. Buys first OTC cream.</p>
+                    </div>
+                  </div>
+                  <div className="journey-stage">
+                    <span className="stage-num">2</span>
+                    <div>
+                      <strong>Escalation</strong>
+                      <p>Cream doesn't work. Tries 3-5 more products. Tea tree oil, Vicks, vinegar. Years pass.</p>
+                    </div>
+                  </div>
+                  <div className="journey-stage">
+                    <span className="stage-num">3</span>
+                    <div>
+                      <strong>Medical Attempt</strong>
+                      <p>Finally sees a doctor. Gets oral antifungals (terbinafine). Worries about liver damage. Months of treatment.</p>
+                    </div>
+                  </div>
+                  <div className="journey-stage">
+                    <span className="stage-num">4</span>
+                    <div>
+                      <strong>Relapse</strong>
+                      <p>Treatment partially works or fungus returns. Devastating psychologically. "I did everything right and it still came back."</p>
+                    </div>
+                  </div>
+                  <div className="journey-stage">
+                    <span className="stage-num">5</span>
+                    <div>
+                      <strong>Resignation</strong>
+                      <p>Gives up. Accepts it as permanent. Stops trying. Hides feet. Identity merges with the condition.</p>
+                    </div>
+                  </div>
+                  <div className="journey-stage">
+                    <span className="stage-num">6</span>
+                    <div>
+                      <strong>Trigger</strong>
+                      <p>Something reignites hope — a testimonial, a new product, an event. Quietly tries one more time.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <h4>Core Emotional Trigger</h4>
+                <p className="avatar-trigger">
+                  <strong>Resigned hopelessness meets last-chance hope.</strong> This person has been burned so many times by products that promised
+                  results and delivered nothing. They don't trust marketing claims. They trust <strong>other people who have been where they are</strong>.
+                  The selling emotion is <strong>resignation → skeptical hope → "what if this is the one?"</strong>
+                </p>
+
+                <div className="hypothesis-statement">
+                  <h4>HYPOTHESIS</h4>
+                  <p>
+                    <strong>I believe</strong> chronic sufferers aged 45–70 who have had fungal infections for 10+ years will respond to a
+                    <strong> "I tried everything for [X] years — this is what finally worked" </strong>
+                    message because research shows deeply internalized skepticism from decades of failed treatments,
+                    and the only thing that penetrates their cynicism is <strong>peer testimonials from people with matching timelines</strong>.
+                    Their primary trigger is <strong>skeptical last-chance hope</strong> activated by social proof from fellow long-term sufferers.
+                  </p>
+                </div>
+              </div>
+
+              <div className="three-two-two-grid">
+                <h4>3-2-2 Framework</h4>
+                <div className="framework-row">
+                  <div className="framework-col">
+                    <h5>3 Hook / Static Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook A</span>
+                      <div className="slot-angle">Angle: Duration callout / "After [X] years, I'd given up"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook B</span>
+                      <div className="slot-angle">Angle: Product graveyard / "Vicks, tea tree, Lamisil..."</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Hook C</span>
+                      <div className="slot-angle">Angle: Cost shock / "I spent thousands and nothing worked"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                  <div className="framework-col">
+                    <h5>2 Primary Text Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Text A</span>
+                      <div className="slot-angle">Frame: Long-form testimonial (decades of failure → discovery → results)</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Text B</span>
+                      <div className="slot-angle">Frame: "Why nothing worked until now" — mechanism education</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                  <div className="framework-col">
+                    <h5>2 Headline Variations</h5>
+                    <div className="framework-slot">
+                      <span className="slot-label">Headline A</span>
+                      <div className="slot-angle">Peer proof / "thousands who finally found what works"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                    <div className="framework-slot">
+                      <span className="slot-label">Headline B</span>
+                      <div className="slot-angle">Last chance / "what I wish I'd found 20 years ago"</div>
+                      <div className="slot-placeholder">Copy TBD — write together</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="framework-math">
+                  3 hooks x 2 texts x 2 headlines = <strong>12 ad combinations</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* ── TOTAL FRAMEWORK SUMMARY ── */}
+            <div className="framework-total-summary">
+              <h3>Total Ad Testing Matrix</h3>
+              <table className="research-table">
+                <thead>
+                  <tr>
+                    <th>Avatar</th>
+                    <th>Primary Trigger</th>
+                    <th>Hooks</th>
+                    <th>Texts</th>
+                    <th>Headlines</th>
+                    <th>Combos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1. Mike — Active Gym Guy</td>
+                    <td>Recurrence frustration</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>2</td>
+                    <td>12</td>
+                  </tr>
+                  <tr>
+                    <td>2. Sophie — Sandal Dreader</td>
+                    <td>Seasonal shame / lost femininity</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>2</td>
+                    <td>12</td>
+                  </tr>
+                  <tr>
+                    <td>3. Rachel — Contamination Worrier</td>
+                    <td>Family protection / spread fear</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>2</td>
+                    <td>12</td>
+                  </tr>
+                  <tr>
+                    <td>4. Dennis — Decades-Long Sufferer</td>
+                    <td>Skeptical last-chance hope</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>2</td>
+                    <td>12</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan="5"><strong>Total Ad Combinations</strong></td>
+                    <td><strong>48</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              <div className="next-steps-card">
+                <h4>Next Steps</h4>
+                <ol>
+                  <li><strong>Write copy together:</strong> Fill in all 48 ad slots (hooks, primary text, headlines) collaboratively</li>
+                  <li><strong>Create native image prompts:</strong> Generate image concepts for each avatar and hook angle</li>
+                  <li><strong>Launch hook tests:</strong> Test 3 hooks per avatar first, find winners, then test text and headline variations</li>
+                  <li><strong>Iterate:</strong> Kill losers fast, scale winners, create new variations based on what wins</li>
+                </ol>
               </div>
             </div>
           </Section>
